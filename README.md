@@ -54,9 +54,16 @@ data/        Runtime state (gitignored)
 
 ## Status
 
-🟢 **Phase 2 complete** — the render path works: store → renderer → `dashboard.png`,
-served by the API. Demo data seeds on first run so you see a real dashboard.
-Phases 3+ (glasses capture, voice bot) are stubbed and marked `TODO`.
+🟢 **Phases 2 & 3 complete.**
+- **Render path** — store → renderer → `dashboard.png`, served by the API.
+- **Capture path** — `glasses/` watches the synced photo folder → vision AI
+  classifies + extracts tasks → store → dashboard re-renders, version bumps.
+
+Runs **without an API key** out of the box: set `VISION_PROVIDER=mock` (or leave
+`ANTHROPIC_API_KEY` empty) and the pipeline uses canned vision results so you can
+exercise the whole flow. Set a real key to read actual notebook photos.
+
+Phase 4 (voice write-back bot) and Phase 5 (add-on widgets) are stubbed.
 
 ![dashboard preview](docs/dashboard-preview.png)
 

@@ -153,6 +153,61 @@ def is_empty() -> bool:
     return n == 0
 
 
+# --- Writes (used by the glasses capture pipeline) -----------------------
+
+
+def _norm(text: str) -> str:
+    """Normalize task text for fuzzy dedup."""
+    return " ".join(text.lower().split())
+
+
+def photo_exists(photo_hash: str) -> bool:
+    with connect() as conn:
+        row = conn.execute(
+            "SELECT 1 FROM photo WHERE hash=?", (photo_hash,)
+        ).fetchone()
+    return row is not None
+
+
+def record_photo(photo_hash: str, photo_type: str, status: str) -> None:
+    """Remember we've seen this photo (dedup) and how it was handled."""
+    with connect() as conn:
+        conn.execute(
+            "INSERT OR REPLACE INTO photo(hash, type, status, processed_at) "
+            "VALUES (?,?,?,?)",
+            (photo_hash, photo_type, status, dt.datetime.now().isoformat()),
+        )
+        conn.commit()
+
+
+def add_tasks(tasks: list[dict], source_photo: str | None = None) -> int:
+    """Insert tasks, skipping fuzzy duplicates of existing ones. Returns count added.
+
+    Each task is {"text", "status", "confidence"}.
+    """
+    today = dt.date.today().isoformat()
+    added = 0
+    with connect() as conn:
+        existing = {
+            _norm(r["text"])
+            for r in conn.execute("SELECT text FROM task").fetchall()
+        }
+        for t in tasks:
+            key = _norm(t["text"])
+            if not key or key in existing:
+                continue
+            existing.add(key)
+            conn.execute(
+                "INSERT INTO task(text, status, source_photo, confidence, created_at) "
+                "VALUES (?,?,?,?,?)",
+                (t["text"], t.get("status", "todo"), source_photo,
+                 t.get("confidence"), today),
+            )
+            added += 1
+        conn.commit()
+    return added
+
+
 # --- Demo seed (Phase 2: gives the renderer something to draw) -----------
 
 

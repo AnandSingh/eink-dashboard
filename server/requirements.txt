@@ -5,8 +5,9 @@ uvicorn[standard]==0.32.*
 # Rendering
 Pillow==11.*
 
-# Vision AI (default provider)
+# Vision AI (default provider) — pulls in pydantic, used for structured outputs
 anthropic==0.40.*
+pydantic==2.*
 
 # Folder watching
 watchdog==6.*

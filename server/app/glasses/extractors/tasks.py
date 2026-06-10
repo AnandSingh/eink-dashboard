@@ -2,6 +2,8 @@
 
 This is the heart of the system: handwriting → checkable tasks on the dashboard.
 """
+from .. import vision
+from ... import store
 
 # Vision prompt used to pull a clean task list out of a handwritten page.
 EXTRACT_PROMPT = """\
@@ -14,14 +16,19 @@ Ignore doodles, dates, and headers. Only return the tasks.
 """
 
 
-def extract(image_path: str, photo_hash: str, classify_confidence: float) -> None:
+def extract(image_path: str, photo_hash: str, classify_confidence: float) -> int:
     """Extract tasks from a notebook photo and merge into the store.
 
-    Steps (TODO):
-      1. Call vision model with EXTRACT_PROMPT + the image.
-      2. Parse JSON list of {text, status, confidence}.
-      3. Dedup against existing open tasks (fuzzy match on text).
-      4. store.add_tasks(new_tasks, source_photo=photo_hash).
-      5. Low-confidence tasks get flagged with '?' for voice correction.
+    Returns the number of new tasks added (after dedup).
     """
-    raise NotImplementedError("tasks.extract — phase 3")
+    extracted = vision.extract_tasks(image_path, EXTRACT_PROMPT)
+    tasks = [
+        {
+            "text": t.text,
+            "status": t.status if t.status in ("todo", "done") else "todo",
+            "confidence": t.confidence,
+        }
+        for t in extracted
+        if t.text.strip()
+    ]
+    return store.add_tasks(tasks, source_photo=photo_hash)

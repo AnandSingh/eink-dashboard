@@ -1,13 +1,23 @@
 """Watch the synced photo inbox and enqueue new photos for processing.
 
-Photos arrive from the Android phone via Syncthing. We detect new files,
-hash them to skip duplicates, and hand each to the router.
+Photos arrive from the Android phone via Syncthing. We poll the inbox folder
+(simple and robust for synced dirs), hash each file to skip duplicates, and
+hand new ones to the router.
 """
 import hashlib
+import logging
 import os
+import threading
+import time
 
 from ..config import config
+from .. import store
 from . import router
+
+log = logging.getLogger(__name__)
+
+_IMAGE_EXTS = {".jpg", ".jpeg", ".png", ".webp"}
+_POLL_SECONDS = 5
 
 
 def _hash_file(path: str) -> str:
@@ -21,14 +31,34 @@ def _hash_file(path: str) -> str:
 def process_new_photo(path: str) -> None:
     """Entry point for a single newly-arrived photo."""
     photo_hash = _hash_file(path)
-    # TODO: skip if photo_hash already seen (store.photo_exists)
+    if store.photo_exists(photo_hash):
+        return  # already handled (e.g. Syncthing re-touched the file)
     router.route(path, photo_hash)
 
 
-def watch() -> None:
-    """Long-running loop watching INBOX_DIR.
+def _scan_once() -> None:
+    for name in sorted(os.listdir(config.inbox_dir)):
+        if os.path.splitext(name)[1].lower() not in _IMAGE_EXTS:
+            continue
+        path = os.path.join(config.inbox_dir, name)
+        if not os.path.isfile(path):
+            continue
+        try:
+            process_new_photo(path)
+        except Exception:
+            log.exception("failed to process %s", name)
 
-    TODO: replace the naive scan with watchdog.Observer for real events.
-    """
+
+def watch() -> None:
+    """Long-running loop polling INBOX_DIR for new photos."""
     os.makedirs(config.inbox_dir, exist_ok=True)
-    raise NotImplementedError("watch loop — phase 3")
+    log.info("watching %s for new photos", config.inbox_dir)
+    while True:
+        _scan_once()
+        time.sleep(_POLL_SECONDS)
+
+
+def start_background() -> None:
+    """Launch the watcher in a daemon thread (called from the API on startup)."""
+    thread = threading.Thread(target=watch, name="photo-watcher", daemon=True)
+    thread.start()

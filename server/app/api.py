@@ -24,7 +24,8 @@ def _startup() -> None:
         store.seed_demo()
         store.bump_version()
     renderer.render()
-    # TODO (phase 3): launch the watcher loop in a background thread.
+    # Note: the Meta-glasses photo watcher is started by the composition root
+    # (app/main.py), not here — core stays independent of the glasses package.
 
 
 @app.get("/version")
@@ -47,11 +48,12 @@ def healthz() -> JSONResponse:
 # TODO (phase 4): POST /bot webhook → app.bot.handle_message
 
 
-def main() -> None:
+def run() -> None:
+    """Serve the core API (no glasses integration). See app/main.py to wire both."""
     import uvicorn
 
     uvicorn.run(app, host="0.0.0.0", port=config.api_port)
 
 
 if __name__ == "__main__":
-    main()
+    run()

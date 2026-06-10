@@ -14,5 +14,5 @@ COPY app ./app
 
 EXPOSE 8080
 
-# Runs the API + background workers (watcher loop).
-CMD ["python", "-m", "app.api"]
+# Composition root: core API + Meta-glasses photo watcher.
+CMD ["python", "-m", "app.main"]
