@@ -1,0 +1,15 @@
+# Web API
+fastapi==0.115.*
+uvicorn[standard]==0.32.*
+
+# Rendering
+Pillow==11.*
+
+# Vision AI (default provider)
+anthropic==0.40.*
+
+# Folder watching
+watchdog==6.*
+
+# Config
+python-dotenv==1.*

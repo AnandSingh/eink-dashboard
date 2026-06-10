@@ -1,0 +1,19 @@
+services:
+  server:
+    build: ./server
+    env_file: .env
+    ports:
+      - "${API_PORT:-8080}:8080"
+    volumes:
+      # Syncthing drops glasses photos here; mount that host folder in.
+      - ${INBOX_DIR_HOST:-./data/inbox}:/data/inbox
+      - ./data:/data
+    restart: unless-stopped
+
+  # Optional: run Syncthing in the same stack to receive phone photos.
+  # syncthing:
+  #   image: syncthing/syncthing
+  #   ports: ["8384:8384", "22000:22000/tcp", "22000:22000/udp"]
+  #   volumes:
+  #     - ./data/syncthing:/var/syncthing
+  #   restart: unless-stopped

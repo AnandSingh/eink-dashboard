@@ -1,0 +1,20 @@
+# Runtime state
+data/*
+!data/.gitkeep
+
+# Secrets
+.env
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+
+# Rendered output
+*.png
+!docs/**/*.png
+
+# OS
+.DS_Store

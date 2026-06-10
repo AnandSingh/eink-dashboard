@@ -1,0 +1,3 @@
+# display.py uses only the Python standard library.
+# System packages needed on the Pi (install via apt, see install.md):
+#   feh   (fullscreen image viewer, X)   -- or fbi for framebuffer

@@ -1,0 +1,16 @@
+[Unit]
+Description=E-ink dashboard display client
+After=network-online.target graphical.target
+Wants=network-online.target
+
+[Service]
+Environment=DASHBOARD_SERVER=http://homelab.local:8080
+Environment=POLL_SECONDS=60
+# For X/feh, point at the display:
+Environment=DISPLAY=:0
+ExecStart=/usr/bin/python3 /home/pi/eink-dashboard/pi-client/display.py
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=graphical.target
