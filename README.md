@@ -54,16 +54,24 @@ data/        Runtime state (gitignored)
 
 ## Status
 
-🟢 **Phases 2 & 3 complete.**
+🟢 **Phases 2, 3 & 4 complete.**
 - **Render path** — store → renderer → `dashboard.png`, served by the API.
 - **Capture path** — `glasses/` watches the synced photo folder → vision AI
   classifies + extracts tasks → store → dashboard re-renders, version bumps.
+- **Voice write-back** — `/bot` webhook accepts voice/text commands and updates
+  the dashboard:
+  - `add <task>` — add a task
+  - `done <task or habit>` — check off a task (falls back to logging a habit)
+  - `log <habit>` — log a habit for today
+
+  Understands both a generic `{"text","sender"}` body and the WhatsApp Cloud API
+  payload (with the verification handshake), so the glasses can drive it by voice.
 
 Runs **without an API key** out of the box: set `VISION_PROVIDER=mock` (or leave
 `ANTHROPIC_API_KEY` empty) and the pipeline uses canned vision results so you can
 exercise the whole flow. Set a real key to read actual notebook photos.
 
-Phase 4 (voice write-back bot) and Phase 5 (add-on widgets) are stubbed.
+Phase 5 (add-on widgets) is stubbed.
 
 ![dashboard preview](docs/dashboard-preview.png)
 

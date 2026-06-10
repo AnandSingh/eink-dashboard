@@ -208,6 +208,57 @@ def add_tasks(tasks: list[dict], source_photo: str | None = None) -> int:
     return added
 
 
+def _fuzzy_pick(rows, field: str, target: str):
+    """Pick the row whose `field` best matches target: exact-normalized, then substring."""
+    norm_target = _norm(target)
+    for r in rows:
+        if _norm(r[field]) == norm_target:
+            return r
+    for r in rows:
+        nf = _norm(r[field])
+        if norm_target in nf or nf in norm_target:
+            return r
+    return None
+
+
+def mark_task_done(text: str) -> str | None:
+    """Mark the best-matching open task done. Returns its text, or None if no match."""
+    with connect() as conn:
+        rows = conn.execute(
+            "SELECT id, text FROM task WHERE status!='done'"
+        ).fetchall()
+        match = _fuzzy_pick(rows, "text", text)
+        if match is None:
+            return None
+        conn.execute(
+            "UPDATE task SET status='done', done_at=? WHERE id=?",
+            (dt.datetime.now().isoformat(), match["id"]),
+        )
+        conn.commit()
+        return match["text"]
+
+
+def log_habit(name: str) -> str | None:
+    """Log today's completion for the best-matching habit. Returns its name, or None."""
+    today = dt.date.today().isoformat()
+    with connect() as conn:
+        rows = conn.execute("SELECT id, name FROM habit").fetchall()
+        match = _fuzzy_pick(rows, "name", name)
+        if match is None:
+            return None
+        already = conn.execute(
+            "SELECT 1 FROM habit_log WHERE habit_id=? AND date=?",
+            (match["id"], today),
+        ).fetchone()
+        if not already:
+            conn.execute(
+                "INSERT INTO habit_log(habit_id, date, count) VALUES (?,?,1)",
+                (match["id"], today),
+            )
+            conn.commit()
+        return match["name"]
+
+
 # --- Demo seed (Phase 2: gives the renderer something to draw) -----------
 
 

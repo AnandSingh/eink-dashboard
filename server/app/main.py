@@ -11,9 +11,12 @@ import uvicorn
 
 from .api import app
 from .config import config
-from .glasses import watcher
+from .glasses import bot, watcher
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
+
+# Plug the Meta-glasses voice write-back webhook into the core app.
+app.include_router(bot.router)
 
 
 @app.on_event("startup")

@@ -17,6 +17,10 @@ class Config:
 
     api_port: int = int(os.getenv("API_PORT", "8080"))
 
+    # Voice write-back bot (phase 4, optional)
+    whatsapp_token: str = os.getenv("WHATSAPP_TOKEN", "")
+    whatsapp_verify_token: str = os.getenv("WHATSAPP_VERIFY_TOKEN", "")
+
     @property
     def db_path(self) -> str:
         return os.path.join(self.data_dir, "dashboard.db")
