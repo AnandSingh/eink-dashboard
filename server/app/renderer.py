@@ -5,7 +5,7 @@ from PIL import Image, ImageDraw
 
 from . import store, theme
 from .config import config
-from .widgets import today, habits, month, week
+from .widgets import today, habits, month, week, extras
 
 
 def _zones():
@@ -47,12 +47,69 @@ def _draw_header(draw, box) -> None:
               font=theme.font(34), fill=theme.MUTED)
 
 
+def _parse_date(s: str):
+    try:
+        return dt.date.fromisoformat(s)
+    except (ValueError, TypeError):
+        return None
+
+
+def _render_bottom_left(draw, box, today_date, load, n_habits) -> None:
+    """Dispatch the configurable bottom-left zone (week / life / weekofyear / yearprogress)."""
+    choice = config.bottom_left_widget
+    birth = _parse_date(config.birthdate)
+    if choice == "life" and birth:
+        extras.render_life_in_weeks(
+            draw, box,
+            {"birthdate": birth, "years": config.life_years, "today": today_date},
+        )
+    elif choice == "weekofyear":
+        extras.render_week_of_year(draw, box, {"today": today_date})
+    elif choice == "yearprogress":
+        extras.render_year_progress(draw, box, {"today": today_date})
+    else:
+        week.render(draw, box, {"load": load, "max": max(1, n_habits)})
+
+
 def _draw_footer(draw, box) -> None:
+    """A thin time-awareness strip: year progress · week-of-year · life lived."""
     x, y, w, h = box
-    quote = "“What gets scheduled gets done.”"
-    f = theme.font(28)
-    tw = draw.textlength(quote, font=f)
-    draw.text((x + (w - tw) // 2, y + h // 2 - 16), quote, font=f, fill=theme.MUTED)
+    pad = 40
+    cy = y + h // 2
+    today_date = dt.date.today()
+    f = theme.font(26)
+    fb = theme.font(26, bold=True)
+
+    cursor = x + pad
+    # year + mini progress bar
+    yr = str(today_date.year)
+    draw.text((cursor, cy - 16), yr, font=fb, fill=theme.INK)
+    cursor += draw.textlength(yr, font=fb) + 14
+    frac = extras.year_fraction(today_date)
+    bar_w, bar_h = 240, 18
+    by = cy - bar_h // 2
+    draw.rectangle([cursor, by, cursor + bar_w, by + bar_h], outline=theme.INK, width=2)
+    draw.rectangle([cursor, by, cursor + int(bar_w * frac), by + bar_h], fill=theme.INK)
+    cursor += bar_w + 12
+    pct = f"{int(frac * 100)}%"
+    draw.text((cursor, cy - 16), pct, font=f, fill=theme.MUTED)
+    cursor += draw.textlength(pct, font=f) + 40
+
+    def segment(label):
+        nonlocal cursor
+        draw.text((cursor, cy - 16), "·", font=f, fill=theme.FAINT)
+        cursor += draw.textlength("·", font=f) + 24
+        draw.text((cursor, cy - 16), label, font=f, fill=theme.INK)
+        cursor += draw.textlength(label, font=f) + 24
+
+    woy = min(52, today_date.isocalendar().week)
+    segment(f"Week {woy} / 52")
+
+    birth = _parse_date(config.birthdate)
+    if birth:
+        lived_weeks = max(0, (today_date - birth).days // 7)
+        total_weeks = config.life_years * 52
+        segment(f"Life {int(lived_weeks / total_weeks * 100)}% · age {lived_weeks // 52}")
 
 
 def _separators(draw, zones) -> None:
@@ -78,6 +135,7 @@ def render() -> str:
     draw = ImageDraw.Draw(img)
     zones = _zones()
 
+    today_date = dt.date.today()
     _draw_header(draw, zones["header"])
 
     habit_data = store.get_habits()
@@ -86,7 +144,7 @@ def render() -> str:
 
     today.render(draw, zones["today"], {"tasks": store.get_tasks()})
     habits.render(draw, zones["habits"], {"habits": habit_data})
-    week.render(draw, zones["week"], {"load": load, "max": max(1, len(habit_data))})
+    _render_bottom_left(draw, zones["week"], today_date, load, len(habit_data))
     month.render(draw, zones["month"], {"goals": store.get_goals()})
 
     _separators(draw, zones)

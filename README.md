@@ -54,7 +54,7 @@ data/        Runtime state (gitignored)
 
 ## Status
 
-🟢 **Phases 2, 3 & 4 complete.**
+🟢 **Phases 2–5 complete.**
 - **Render path** — store → renderer → `dashboard.png`, served by the API.
 - **Capture path** — `glasses/` watches the synced photo folder → vision AI
   classifies + extracts tasks → store → dashboard re-renders, version bumps.
@@ -67,11 +67,16 @@ data/        Runtime state (gitignored)
   Understands both a generic `{"text","sender"}` body and the WhatsApp Cloud API
   payload (with the verification handshake), so the glasses can drive it by voice.
 
+- **Add-on widgets** — a time-awareness footer strip (year progress · week-of-year ·
+  life lived) plus a selectable bottom-left zone via `BOTTOM_LEFT_WIDGET`:
+  `week` (default) · `weekofyear` · `yearprogress` · `life` (life-in-weeks grid,
+  needs `BIRTHDATE`).
+
 Runs **without an API key** out of the box: set `VISION_PROVIDER=mock` (or leave
 `ANTHROPIC_API_KEY` empty) and the pipeline uses canned vision results so you can
 exercise the whole flow. Set a real key to read actual notebook photos.
 
-Phase 5 (add-on widgets) is stubbed.
+All five build phases are complete. 🎉
 
 ![dashboard preview](docs/dashboard-preview.png)
 
@@ -89,7 +94,7 @@ See [`pi-client/install.md`](pi-client/install.md).
 ## Phases
 
 1. ✅ Skeleton (this repo)
-2. ⬜ Render path: store → PNG → api → Pi
-3. ⬜ Capture path: watcher → classifier → tasks extractor
-4. ⬜ Voice write-back bot
-5. ⬜ Add-on widgets (week-of-year, life-in-weeks, …)
+2. ✅ Render path: store → PNG → api → Pi
+3. ✅ Capture path: watcher → classifier → tasks extractor
+4. ✅ Voice write-back bot
+5. ✅ Add-on widgets (week-of-year, life-in-weeks, …)
