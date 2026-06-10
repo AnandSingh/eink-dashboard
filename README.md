@@ -10,6 +10,7 @@ Fully self-hosted: a homelab server does all the work; a Raspberry Pi is a dumb
 display client driving the Boox over HDMI.
 
 > Full design: [`docs/plans/2026-06-10-eink-dashboard-design.md`](docs/plans/2026-06-10-eink-dashboard-design.md)
+> Deploy on real hardware: [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md)
 
 ## Architecture
 
