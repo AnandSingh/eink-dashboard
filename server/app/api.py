@@ -8,8 +8,10 @@ Also the container's main process: starts the DB and (later) the photo watcher.
 from fastapi import FastAPI
 from fastapi.responses import FileResponse, JSONResponse
 
+import os
+
 from .config import config
-from . import store
+from . import store, renderer
 
 app = FastAPI(title="eink-dashboard")
 
@@ -17,6 +19,11 @@ app = FastAPI(title="eink-dashboard")
 @app.on_event("startup")
 def _startup() -> None:
     store.init_db()
+    if store.is_empty():
+        # Phase 2: seed demo data so the dashboard renders something real.
+        store.seed_demo()
+        store.bump_version()
+    renderer.render()
     # TODO (phase 3): launch the watcher loop in a background thread.
 
 
@@ -27,7 +34,8 @@ def version() -> JSONResponse:
 
 @app.get("/dashboard.png")
 def dashboard_png() -> FileResponse:
-    # TODO: ensure a PNG exists (render on first run if missing).
+    if not os.path.exists(config.png_path):
+        renderer.render()
     return FileResponse(config.png_path, media_type="image/png")
 
 

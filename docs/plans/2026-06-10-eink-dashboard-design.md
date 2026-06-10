@@ -67,6 +67,12 @@ Raspberry Pi acting as a dumb display client.
 | `widgets/*`      | Independent, pluggable zones (today, habits, month, extras) |
 | `api`            | Serves `dashboard.png` + a monotonic `version` integer |
 
+> **Code separation:** the Meta AI glasses integration (`watcher`, `classifier`,
+> `router`, `extractors`, `bot`) lives under `server/app/glasses/`. The core
+> (`config`, `store`, `theme`, `renderer`, `widgets`, `api`) is Meta-agnostic and
+> never imports from `glasses/`, so the integration can be swapped or removed
+> without touching the dashboard.
+
 ### Components (Pi client)
 
 | Component                  | Responsibility |

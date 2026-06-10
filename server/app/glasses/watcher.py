@@ -6,7 +6,7 @@ hash them to skip duplicates, and hand each to the router.
 import hashlib
 import os
 
-from .config import config
+from ..config import config
 from . import router
 
 

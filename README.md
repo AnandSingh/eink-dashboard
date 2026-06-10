@@ -29,24 +29,36 @@ notebook → 👓 glasses photo → 📱 phone → (Syncthing) → 🖥️ homel
 ```
 server/      Docker service: ingest photos, store state, render the dashboard PNG
   app/
-    watcher.py        watch the synced photo folder
-    classifier.py     vision AI: what kind of photo is this?
-    router.py         route photo → extractor
-    extractors/       photo type → structured records (tasks is the MVP)
-    bot.py            voice/text write-back ("done: gym")
+    # --- core (Meta-agnostic) ---
+    config.py         env-driven config
     store.py          SQLite + Markdown source of truth
+    theme.py          fonts + grayscale palette
     renderer.py       compose widgets → grayscale PNG
-    widgets/          pluggable dashboard zones (today, habits, month, extras)
+    widgets/          pluggable dashboard zones (today, habits, week, month, extras)
     api.py            serve dashboard.png + a version number
+    # --- Meta AI glasses integration (kept separate) ---
+    glasses/
+      watcher.py      watch the synced photo folder
+      classifier.py   vision AI: what kind of photo is this?
+      router.py       route photo → extractor
+      extractors/     photo type → structured records (tasks is the MVP)
+      bot.py          voice/text write-back ("done: gym")
 pi-client/   Runs on the Raspberry Pi: fetch the PNG, show it fullscreen
 docs/        Design docs
 data/        Runtime state (gitignored)
 ```
 
+> **Note:** everything Meta-glasses-specific lives under `server/app/glasses/`.
+> The core never imports from it, so the glasses integration can be swapped or
+> removed without touching the dashboard.
+
 ## Status
 
-🟡 **Skeleton.** Structure, stubs, and design are in place. Logic is marked `TODO`.
-See the build phases in the design doc.
+🟢 **Phase 2 complete** — the render path works: store → renderer → `dashboard.png`,
+served by the API. Demo data seeds on first run so you see a real dashboard.
+Phases 3+ (glasses capture, voice bot) are stubbed and marked `TODO`.
+
+![dashboard preview](docs/dashboard-preview.png)
 
 ## Quick start (homelab server)
 
