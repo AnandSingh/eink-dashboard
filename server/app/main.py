@@ -13,6 +13,7 @@ from .api import app
 from .config import config
 from .glasses import bot, watcher
 from .calendar import sync as calendar_sync
+from .weather import sync as weather_sync
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 
@@ -25,6 +26,7 @@ def _start_integrations() -> None:
     # Runs after the core startup hook (DB init + first render).
     watcher.start_background()
     calendar_sync.start_background()  # no-op if CALENDAR_ICS_URL is unset
+    weather_sync.start_background()   # no-op if WEATHER_ENABLED=false
 
 
 def main() -> None:

@@ -63,6 +63,11 @@ CREATE TABLE IF NOT EXISTS event (
 def connect() -> sqlite3.Connection:
     conn = sqlite3.connect(config.db_path)
     conn.row_factory = sqlite3.Row
+    # Multiple daemon threads (glasses, calendar, weather) + the API write here.
+    # Wait on locks instead of raising "database is locked"; WAL lets a reader
+    # (e.g. GET /dashboard.png path) coexist with a writer.
+    conn.execute("PRAGMA busy_timeout=5000")
+    conn.execute("PRAGMA journal_mode=WAL")
     return conn
 
 
@@ -87,10 +92,13 @@ def bump_version() -> int:
     the rendered image actually differs).
     """
     with connect() as conn:
-        new = get_version() + 1
-        conn.execute("UPDATE meta SET value=? WHERE key='version'", (str(new),))
+        # Single-statement increment: atomic, no lost updates under concurrency.
+        conn.execute(
+            "UPDATE meta SET value = CAST(value AS INTEGER) + 1 WHERE key='version'"
+        )
         conn.commit()
-    return new
+        row = conn.execute("SELECT value FROM meta WHERE key='version'").fetchone()
+        return int(row["value"])
 
 
 def get_meta(key: str) -> str | None:

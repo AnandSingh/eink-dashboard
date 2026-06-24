@@ -34,6 +34,14 @@ class Config:
     calendar_poll_minutes: int = int(os.getenv("CALENDAR_POLL_MINUTES", "15"))
     calendar_render_tick_minutes: int = int(os.getenv("CALENDAR_RENDER_TICK_MINUTES", "5"))
 
+    # Weather integration (phase 7) — Open-Meteo → header icon + temp + high/low.
+    # Auto-detects location by IP unless WEATHER_LAT/WEATHER_LON are both set.
+    weather_enabled: bool = os.getenv("WEATHER_ENABLED", "true").lower() != "false"
+    weather_lat: str = os.getenv("WEATHER_LAT", "")
+    weather_lon: str = os.getenv("WEATHER_LON", "")
+    weather_units: str = os.getenv("WEATHER_UNITS", "fahrenheit")  # fahrenheit | celsius
+    weather_poll_minutes: int = int(os.getenv("WEATHER_POLL_MINUTES", "30"))
+
     @property
     def db_path(self) -> str:
         return os.path.join(self.data_dir, "dashboard.db")

@@ -1,11 +1,13 @@
 """Compose widget zones into a single grayscale PNG sized for the Boox panel."""
 import datetime as dt
 import hashlib
+import os
+import threading
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from PIL import Image, ImageDraw
 
-from . import agenda, store, theme
+from . import agenda, store, theme, weathericons, weatherview
 from .config import config
 from .widgets import today, habits, month, week, extras
 
@@ -70,15 +72,48 @@ def _draw_header(draw, box) -> None:
     draw.text((x + pad, date_y), date_txt,
               font=theme.font(40, bold=True), fill=theme.INK)
 
-    # right side: weather (placeholder until integrated) + week-of-year
-    woy = d.isocalendar().week
-    right = f"Week {woy} / 52      --°"
-    rfont = theme.font(32)
-    tw = draw.textlength(right, font=rfont)
-    draw.text((x + w - pad - tw, right_y), right, font=rfont, fill=theme.MUTED)
+    _draw_right_block(draw, x + w - pad, right_y, d.isocalendar().week)
 
     if banner is not None:
         _draw_banner(draw, x + pad, y + 86, w - 2 * pad, banner, dot=has_now)
+
+
+_ICON_W = 40
+_GAP = 18
+
+
+def _draw_right_block(draw, right_x, y, woy: int) -> None:
+    """Right-aligned: 'Week N / 52' then weather (icon + temp + H/L), or '--°'.
+
+    The group contains a DRAWN icon, so it can't be right-aligned with textlength
+    alone — we sum segment widths and draw left-to-right from a computed origin.
+    """
+    rfont = theme.font(32)
+    weather = weatherview.parse(store.get_meta("weather")) if config.weather_enabled else None
+    week_txt = f"Week {woy} / 52"
+    week_w = draw.textlength(week_txt, font=rfont)
+
+    if weather is None:
+        # Original placeholder layout, right-aligned as one string.
+        full = f"{week_txt}      --°"
+        draw.text((right_x - draw.textlength(full, font=rfont), y), full,
+                  font=rfont, fill=theme.MUTED)
+        return
+
+    temp_w = draw.textlength(weather["temp_txt"], font=rfont)
+    hl_w = draw.textlength(weather["hl_txt"], font=rfont)
+    total = week_w + _GAP + _ICON_W + _GAP + temp_w + _GAP + hl_w
+    cursor = right_x - total
+
+    draw.text((cursor, y), week_txt, font=rfont, fill=theme.MUTED)
+    cursor += week_w + _GAP
+    # Icon vertically centered on the 32px text's cap height (~22px from `y`).
+    icon_y = y + 11 - _ICON_W // 2 + 6
+    weathericons.draw(draw, (cursor, icon_y, _ICON_W, _ICON_W), weather["code"], fill=theme.INK)
+    cursor += _ICON_W + _GAP
+    draw.text((cursor, y), weather["temp_txt"], font=rfont, fill=theme.INK)
+    cursor += temp_w + _GAP
+    draw.text((cursor, y), weather["hl_txt"], font=rfont, fill=theme.MUTED)
 
 
 def _draw_banner(draw, x, y, max_w, text, dot: bool) -> None:
@@ -187,8 +222,14 @@ def _separators(draw, zones) -> None:
     draw.line([0, fy, W, fy], fill=theme.FAINT, width=2)
 
 
-def render() -> str:
-    """Render the dashboard to config.png_path. Returns the path."""
+# Serializes the render path: three daemon threads (glasses/calendar/weather) plus
+# the API can all render concurrently. The public entry points hold this lock and
+# call the unlocked core — they never re-acquire (so no self-deadlock).
+_RENDER_LOCK = threading.Lock()
+
+
+def _render_unlocked() -> str:
+    """Draw the dashboard and atomically write config.png_path. Caller holds the lock."""
     img = Image.new("L", (config.panel_width, config.panel_height), color=theme.BG)
     draw = ImageDraw.Draw(img)
     zones = _zones()
@@ -208,21 +249,32 @@ def render() -> str:
     _separators(draw, zones)
     _draw_footer(draw, zones["footer"])
 
-    img.save(config.png_path)
+    # Atomic write: render to a temp file then rename, so a concurrent reader
+    # (GET /dashboard.png) never sees a half-written PNG.
+    tmp = config.png_path + ".tmp"
+    img.save(tmp, format="PNG")  # explicit: the .tmp extension can't infer it
+    os.replace(tmp, config.png_path)
     return config.png_path
+
+
+def render() -> str:
+    """Render the dashboard to config.png_path. Returns the path."""
+    with _RENDER_LOCK:
+        return _render_unlocked()
 
 
 def render_if_changed() -> bool:
     """Render, then bump the version only if the PNG bytes actually changed.
 
-    Lets time-driven callers (e.g. the calendar poller) re-render frequently
-    without forcing needless e-ink refreshes. Returns True if the version bumped.
+    Lets time-driven callers (e.g. the calendar/weather pollers) re-render
+    frequently without forcing needless e-ink refreshes. Returns True if bumped.
     """
-    render()
-    with open(config.png_path, "rb") as f:
-        new_hash = hashlib.sha256(f.read()).hexdigest()
-    if new_hash != store.get_meta("png_hash"):
-        store.set_meta("png_hash", new_hash)
-        store.bump_version()
-        return True
-    return False
+    with _RENDER_LOCK:
+        _render_unlocked()
+        with open(config.png_path, "rb") as f:
+            new_hash = hashlib.sha256(f.read()).hexdigest()
+        if new_hash != store.get_meta("png_hash"):
+            store.set_meta("png_hash", new_hash)
+            store.bump_version()
+            return True
+        return False

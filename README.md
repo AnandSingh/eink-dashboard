@@ -38,6 +38,8 @@ server/      Docker service: ingest photos, store state, render the dashboard PN
     widgets/          pluggable dashboard zones (today, habits, week, month, extras)
     api.py            serve dashboard.png + a version number
     agenda.py         core Now/Next selection + header banner text
+    weatherview.py    core: parse stored weather snapshot for the header
+    weathericons.py   core: WMO code → drawn condition glyph
     # --- Meta AI glasses integration (kept separate) ---
     glasses/
       watcher.py      watch the synced photo folder
@@ -49,19 +51,23 @@ server/      Docker service: ingest photos, store state, render the dashboard PN
     calendar/
       source.py       fetch + parse a personal .ics, expand recurrences
       sync.py         background poller → events in the store
+    # --- Weather integration (kept separate) ---
+    weather/
+      source.py       resolve location (IP/manual) + fetch Open-Meteo
+      sync.py         background poller → weather snapshot in the store
 pi-client/   Runs on the Raspberry Pi: fetch the PNG, show it fullscreen
 docs/        Design docs
 data/        Runtime state (gitignored)
 ```
 
-> **Note:** everything Meta-glasses-specific lives under `server/app/glasses/`,
-> and everything calendar-specific under `server/app/calendar/`. The core never
-> imports from either, so both integrations can be swapped or removed without
+> **Note:** the optional integrations each live in their own package —
+> `server/app/glasses/`, `server/app/calendar/`, `server/app/weather/`. The core
+> never imports from any of them, so each can be swapped or removed without
 > touching the dashboard.
 
 ## Status
 
-🟢 **Phases 2–6 complete.**
+🟢 **Phases 2–7 complete.**
 - **Render path** — store → renderer → `dashboard.png`, served by the API.
 - **Capture path** — `glasses/` watches the synced photo folder → vision AI
   classifies + extracts tasks → store → dashboard re-renders, version bumps.
@@ -84,11 +90,16 @@ data/        Runtime state (gitignored)
   stored in UTC, and the screen only refreshes when the rendered image changes.
   Off by default (no URL = no banner, header unchanged). See `docs/plans/2026-06-24-calendar-integration-design.md`.
 
+- **Weather** — the header shows a condition icon + current temp + today's high/low
+  via Open-Meteo (no API key). Location auto-detects by IP, or set `WEATHER_LAT`/
+  `WEATHER_LON`. On by default; falls back to a `--°` placeholder if unavailable.
+  See `docs/plans/2026-06-24-weather-integration-design.md`.
+
 Runs **without an API key** out of the box: set `VISION_PROVIDER=mock` (or leave
 `ANTHROPIC_API_KEY` empty) and the pipeline uses canned vision results so you can
 exercise the whole flow. Set a real key to read actual notebook photos.
 
-Phases 2–6 are complete. 🎉
+Phases 2–7 are complete. 🎉
 
 ![dashboard preview](docs/dashboard-preview.png)
 
@@ -111,3 +122,4 @@ See [`pi-client/install.md`](pi-client/install.md).
 4. ✅ Voice write-back bot
 5. ✅ Add-on widgets (week-of-year, life-in-weeks, …)
 6. ✅ Calendar integration (personal `.ics` → Now/Next header banner)
+7. ✅ Weather (Open-Meteo → header icon + temp + high/low)
