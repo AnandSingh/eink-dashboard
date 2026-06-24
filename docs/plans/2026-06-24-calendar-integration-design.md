@@ -1,8 +1,25 @@
 # Calendar Integration (Phase 6) — Design
 
 **Date:** 2026-06-24
-**Status:** Design approved
+**Status:** Design approved (revised after review 1)
 **Author:** Anand (with Claude)
+
+## Changes from previous version (review 1)
+
+Addresses the three critical issues from `calendar-integration-design-review-1.md`:
+
+1. **Conditional version bump is now a real, core mechanism** — a new
+   `render_if_changed()` helper in core (not in the removable calendar package),
+   reused by startup, glasses, and calendar. See "Refresh model".
+2. **Header placement now has measured coordinates** — the header is restructured
+   into two bands with explicit y-positions and a width budget; the banner only
+   appears when calendar is configured.
+3. **Banner symbols are font-safe** — the "now" dot is drawn as a filled ellipse
+   primitive; all other text is ASCII. DejaVu is relied on only for normal text.
+
+Also folds in suggestions: stdlib `urllib` for fetch (no httpx dep),
+`recurring-ical-events` for RRULE expansion, `CALENDAR_TZ` via stdlib `zoneinfo`,
+a render tick decoupled from the data poll, and explicit edge-case handling.
 
 ## Goal
 
@@ -10,9 +27,8 @@ Add the user's **personal calendar** to the always-on dashboard so it shows not
 just tasks / habits / goals but *what's happening now and what's next* — the
 "Now/Next focus banner" banked in the original design doc.
 
-Scope for this phase: **a Now/Next banner only**, fed by a single **`.ics` URL**
-(personal calendar), polled every **15 minutes**. A full agenda widget is
-deferred.
+Scope: **a Now/Next banner only**, fed by a single **`.ics` URL** (personal
+calendar). A full agenda widget is deferred.
 
 ## Decisions
 
@@ -20,122 +36,178 @@ deferred.
 |----------|--------|-----|
 | Source | Single `.ics` URL | Simplest, fully self-hosted, no cloud API/OAuth |
 | Scope | One personal calendar | One `.ics` = nothing to filter |
-| Refresh | Poll every 15 min | Calendars change rarely; e-ink is slow + ghosts |
-| Display | Now/Next banner only | Highest signal-per-pixel; banked feature; agenda later |
-| Placement | Second line in the header | No zone resize, no Pi change, reuses header whitespace |
-| All-day events | Excluded from Now/Next | Would read as "Now" all day and drown out meetings |
+| Data poll | Fetch `.ics` every 15 min | Calendars change rarely |
+| Render tick | Re-evaluate banner every 5 min | Keeps "now" fresh between data polls |
+| E-ink flicker | Bump version only when PNG bytes change | No refresh unless the image differs |
+| Display | Now/Next banner only | Highest signal-per-pixel; agenda later |
+| Placement | Second band in the header (measured) | No body-zone resize, no Pi change |
+| All-day events | Excluded from Now/Next | Would read as "Now" all day |
 
 ## Architecture
 
-Calendar is its **own pluggable source package**, mirroring how `glasses/` is
-isolated. The core renderer never learns where events come from — it reads them
-from the store.
+Calendar is its **own pluggable source package**, mirroring `glasses/`. The core
+renderer never learns where events come from — it reads them from the store.
 
 ```
-.ics URL ──poll(15m)──▶ calendar/sync ──▶ store (event table) ──▶ renderer header banner ──▶ dashboard.png
+.ics URL ──poll(15m)──▶ calendar/sync ──▶ store (event table) ──▶ render_if_changed() ──▶ dashboard.png
 ```
 
 New / changed pieces:
 
 - **`server/app/calendar/`** — new isolated package:
-  - `source.py` — fetch the `.ics` over HTTP, parse it, normalize to event records.
-  - `sync.py` — background poller (every 15 min); refresh the event table, then
-    re-render and **bump `version` only if the rendered PNG content hash changed**
-    (no needless e-ink refresh).
-- **`store.py`** — gains an `event` table + `get_todays_events()` / `replace_events()`.
-- **`renderer.py`** — header gains a Now/Next sub-line (the only render change).
+  - `source.py` — fetch the `.ics` (stdlib `urllib`, with timeout), parse +
+    expand recurrences, normalize to event records.
+  - `sync.py` — background daemon thread (mirrors `glasses/watcher.py`).
+- **`store.py`** — gains an `event` table + `get_todays_events()` /
+  `replace_events()`, and a `meta['png_hash']` slot for the change check.
+- **`renderer.py`** — header restructured into two bands; new `render_if_changed()`.
 - **`main.py`** (composition root) — starts the calendar poller alongside the
-  glasses watcher. The **core never imports `calendar/`**; it plugs in here, so
-  it's removable, exactly like `glasses/`.
+  glasses watcher.
 
-**New dependency:** `icalendar` (parses `.ics` / VEVENT / recurrence). Fetch via
-`httpx` (already transitively present) or stdlib `urllib`.
+> **Hard rule:** the core (`api`, `renderer`, `store`, `config`, `widgets`) must
+> **never import `calendar/`**. Wiring lives only in `main.py`, exactly like
+> `glasses/`. Do **not** add a calendar startup hook in `api.py`. This keeps the
+> package removable.
+
+**Dependencies (pin in `requirements.txt`):** `icalendar` (parse) +
+`recurring-ical-events` (expand RRULE — `icalendar` alone does **not** expand
+recurrences). Fetch uses stdlib `urllib.request` — no new HTTP dep. TZ uses
+stdlib `zoneinfo`.
 
 ## Data model
 
 ```
 event(
-  uid        TEXT PRIMARY KEY,   -- VEVENT UID (+ recurrence-id for repeats)
+  key        TEXT PRIMARY KEY,   -- synthetic: f"{uid}@{occurrence_start_utc}"
+  uid        TEXT,               -- VEVENT UID (series id)
   title      TEXT,
-  start_utc  TEXT,               -- ISO8601, normalized to UTC
-  end_utc    TEXT,
+  start_utc  TEXT,               -- ISO8601, UTC
+  end_utc    TEXT,               -- ISO8601, UTC
   all_day    INTEGER,            -- 0/1
   location   TEXT
 )
 ```
 
-## Sync behavior (`calendar/sync.py`)
+`key` is `uid + occurrence-start` so two occurrences of the same recurring series
+don't overwrite each other. Added to the existing `SCHEMA` string via
+`CREATE TABLE IF NOT EXISTS` (no migration system exists; new table is created on
+next startup). Read with a standalone `get_todays_events()` returning
+`list[dict]` — no joins (matches how the renderer reads every other table).
 
-1. Every 15 min: fetch the `.ics` URL.
-2. Parse with `icalendar`; **expand recurring events** for a small window
-   (today ± 1 day — enough for a Now/Next banner; no year-long expansion).
-3. Normalize all times to **UTC** for storage; convert to local only at render time.
-4. `store.replace_events(...)` — wipe + repopulate (table is tiny + display-only,
-   so no incremental diffing needed).
-5. Re-render; bump `version` only if the PNG content hash changed.
+## Refresh model (resolves critical issue #1)
 
-### Timezone
+The existing `store.bump_version()` bumps unconditionally and `renderer.render()`
+returns no "changed" signal. We add **one core helper** so polling can't cause
+needless e-ink refreshes:
 
-`.ics` times come in three flavors: zoned (`TZID=…`), UTC (`Z`), and "floating"
-(no zone). We store UTC; floating times are interpreted in **`CALENDAR_TZ`**
-(IANA name, e.g. `America/Los_Angeles`), which also drives "what is now" at
-render time.
+```
+# renderer.py (core)
+def render_if_changed() -> bool:
+    render()                                   # writes config.png_path
+    new_hash = sha256(open(png_path,'rb').read())
+    if new_hash != store.get_meta('png_hash'):
+        store.set_meta('png_hash', new_hash)
+        store.bump_version()                   # Pi re-downloads
+        return True
+    return False
+```
+
+- Lives in **core**, reused by startup (`api.py`), glasses, and calendar — no
+  hash logic leaks into the removable package.
+- `store` gains tiny `get_meta()/set_meta()` helpers over the existing `meta`
+  key/value table.
+
+**Sync thread (`calendar/sync.py`), one daemon loop, sleeps 5 min:**
+1. If ≥15 min since last successful fetch → fetch `.ics`, parse, expand
+   recurrences for **today ± 1 day** (in `CALENDAR_TZ`), normalize to UTC,
+   `store.replace_events(...)`.
+2. Every tick (5 min) → `renderer.render_if_changed()`.
+
+Result: the banner advances in ≤5-min steps (crossing a meeting boundary
+re-renders), but the screen only refreshes when the rendered image actually
+changes. Data is at most ~15 min stale; "now" is at most ~5 min stale —
+documented and acceptable for e-ink.
 
 ### Failure handling
 
-Matches the original doc's "never silently drop / keep last good state":
+- Fetch fails / non-200 / HTML-not-ics / timeout → **keep last-good events**, log
+  a warning, never crash the thread (bounded `urllib` timeout so it can't hang).
+- Empty calendar / no `CALENDAR_ICS_URL` → poller doesn't start; banner hides;
+  header reverts to date-only (current behavior).
 
-- Fetch/parse fails → **keep the previously-synced events**, log a warning, don't
-  crash the poller. Banner keeps showing last-known data rather than going blank.
-- Empty calendar / no URL configured → banner hides; header reverts to date-only.
+## Header layout (resolves critical issue #2)
+
+`header_h = int(H*0.10)` = 144px at 1440. Restructure `_draw_header` into two
+explicit bands (coordinates relative to header box `y`, panel width 2560,
+`pad=28`):
+
+- **Top band — date + week/weather** (unchanged content, moved up):
+  - Date: left at `(pad, y+18)`, font **40 bold** (was 46).
+  - Right block `Week N / 52  --°`: right-aligned at `y+24`, font 32.
+- **Bottom band — Now/Next banner** (new), only when calendar configured:
+  - Drawn at `(pad, y+86)`, font **30**, max width `W - 2*pad`, left-aligned,
+    truncated with `…` to fit.
+
+If `CALENDAR_ICS_URL` is unset, the bottom band is skipped and the date stays
+vertically centered as today — **zero visual change when the feature is off.**
+No body-zone resize; the existing separator line stays at `header_h`.
 
 ## Now/Next banner logic
 
-Computed at render time using `CALENDAR_TZ` for "now":
+Computed at render time; "now" and "today" are evaluated in **`CALENDAR_TZ`**
+(stdlib `zoneinfo`, so DST is handled). Timed events only.
 
-- **Now** = event with `start ≤ now < end` (timed only); on overlap, the one
-  ending soonest.
-- **Next** = earliest timed event with `start > now` **today**.
+- **Now** = event with `start ≤ now < end`; on overlap, the one ending soonest.
+  (Selector compares full UTC timestamps, so a meeting spanning midnight still
+  counts as "Now" at 00:30.)
+- **Next** = earliest timed event with `start > now`, within today (`CALENDAR_TZ`).
 
-Rendering — header sub-line under the date:
+### Rendering (font-safe — resolves critical issue #3)
+
+- The leading indicator is a **filled ellipse drawn in INK** (`draw.ellipse`),
+  not a glyph.
+- All text is ASCII: `until`, `Next`, `No more events today`. Separator is `·`
+  (present in DejaVu; DejaVu ships in the Docker image and is the documented
+  requirement — `theme.font()` only falls back to a bitmap font if DejaVu is
+  absent, which the deploy guarantees against).
 
 ```
-● Now: Standup → 10:00    ·    Next: 1:1 at 11:30
+(•) Now: Standup  until 10:00     ·     Next: 1:1 at 11:30
 ```
-
-- "Now" shows title + **end** time; "Next" shows title + **start** time.
-- Local TZ, `%-I:%M` formatting; long titles truncated with `…` to fit width.
-- Symbol: a filled circle `●` drawn in INK (not the `🔴` emoji, which the DejaVu
-  fallback font won't render on grayscale e-ink).
 
 ### Banner states
 
 | Situation | Banner |
 |-----------|--------|
-| In a meeting, more after | `● Now: Standup → 10:00 · Next: 1:1 at 11:30` |
-| In a meeting, none after | `● Now: Standup → 10:00 · Nothing after` |
+| In a meeting, more after | `(•) Now: Standup until 10:00 · Next: 1:1 at 11:30` |
+| In a meeting, none after | `(•) Now: Standup until 10:00 · Nothing after` |
 | Free now, more today | `Next: 1:1 at 11:30` |
-| Nothing left today | `✓ No more events today` |
-| No events / no URL | (banner hidden; header = date only) |
+| Nothing left today | `No more events today` |
+| No events / no URL | (band hidden; header = date only) |
 
 ## Config keys
 
 | Key | Default | Purpose |
 |-----|---------|---------|
-| `CALENDAR_ICS_URL` | `""` | The personal `.ics` URL. Empty = feature off. |
-| `CALENDAR_TZ` | system / `UTC` | IANA zone for "now" + floating events. |
-| `CALENDAR_POLL_MINUTES` | `15` | Poll cadence. |
+| `CALENDAR_ICS_URL` | `""` | Personal `.ics` URL. Empty = feature off. |
+| `CALENDAR_TZ` | `UTC` | IANA zone (e.g. `America/Los_Angeles`) for "now"/"today"/floating events. |
+| `CALENDAR_POLL_MINUTES` | `15` | `.ics` fetch cadence. |
+| `CALENDAR_RENDER_TICK_MINUTES` | `5` | Banner re-evaluation cadence. |
 
 ## Testing
 
-- **Unit** — pure now/next selector with a frozen `now` and synthetic event lists:
-  in-meeting, gap, end-of-day, all-day-only, overlap, empty. No network.
-- **Parse** — one test against a sample `.ics` fixture (timed + recurring + all-day).
+- **Unit — now/next selector** with frozen `now` + synthetic events: in-meeting,
+  gap, end-of-day, all-day-only, overlap, midnight-spanning, empty. No network.
+- **Unit — `render_if_changed()`**: returns False + no version bump on identical
+  input; True + bump when content differs.
+- **Parse — sample `.ics` fixture**: timed + recurring (RRULE expansion) + all-day
+  + a `TZID` and a floating event; assert UTC normalization and synthetic keys.
 
 ## Out of scope (this phase)
 
-- Full agenda / timeline widget (banked for later — the `event` table already
-  supports it).
-- Multiple calendars / work calendar.
+- Full agenda / timeline widget (banked; `event` table already supports it).
+- Multiple / work calendars.
 - Writing to the calendar (display-only).
 - Weather in the header (separate banked item).
+- Migrating the deprecated `on_event("startup")` hooks to `lifespan` (codebase-wide
+  cleanup; out of scope here — calendar mirrors the existing pattern in `main.py`).
