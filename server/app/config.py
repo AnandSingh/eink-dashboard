@@ -27,6 +27,13 @@ class Config:
     birthdate: str = os.getenv("BIRTHDATE", "")        # YYYY-MM-DD, for life-in-weeks
     life_years: int = int(os.getenv("LIFE_YEARS", "90"))
 
+    # Calendar integration (phase 6) — personal .ics → Now/Next header banner.
+    # Empty URL disables the feature (banner hides, poller never starts).
+    calendar_ics_url: str = os.getenv("CALENDAR_ICS_URL", "")
+    calendar_tz: str = os.getenv("CALENDAR_TZ", "UTC")  # IANA, e.g. America/Los_Angeles
+    calendar_poll_minutes: int = int(os.getenv("CALENDAR_POLL_MINUTES", "15"))
+    calendar_render_tick_minutes: int = int(os.getenv("CALENDAR_RENDER_TICK_MINUTES", "5"))
+
     @property
     def db_path(self) -> str:
         return os.path.join(self.data_dir, "dashboard.db")

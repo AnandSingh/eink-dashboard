@@ -1,9 +1,11 @@
 """Compose widget zones into a single grayscale PNG sized for the Boox panel."""
 import datetime as dt
+import hashlib
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from PIL import Image, ImageDraw
 
-from . import store, theme
+from . import agenda, store, theme
 from .config import config
 from .widgets import today, habits, month, week, extras
 
@@ -31,20 +33,76 @@ def _zones():
     }
 
 
+def _calendar_tz():
+    try:
+        return ZoneInfo(config.calendar_tz)
+    except (ZoneInfoNotFoundError, ValueError):
+        return dt.timezone.utc
+
+
 def _draw_header(draw, box) -> None:
     x, y, w, h = box
     pad = 28
     d = dt.date.today()
     date_txt = d.strftime("%A, %B %-d")
-    draw.text((x + pad, y + h // 2 - 26), date_txt,
-              font=theme.font(46, bold=True), fill=theme.INK)
+
+    # The Now/Next banner occupies a second band only when calendar is configured
+    # and there's something to show; otherwise the date stays vertically centered
+    # (zero visual change when the feature is off).
+    banner = None
+    has_now = False
+    if config.calendar_ics_url:
+        tz = _calendar_tz()
+        now = dt.datetime.now(dt.timezone.utc)
+        events = store.get_events()
+        banner = agenda.banner_text(events, now, tz)
+        has_now = agenda.has_now(events, now, tz)
+
+    if banner is None:
+        # Single centered band — original layout.
+        date_y = y + h // 2 - 26
+        right_y = y + h // 2 - 18
+    else:
+        # Two bands: date on top, banner beneath.
+        date_y = y + 18
+        right_y = y + 24
+
+    draw.text((x + pad, date_y), date_txt,
+              font=theme.font(40, bold=True), fill=theme.INK)
 
     # right side: weather (placeholder until integrated) + week-of-year
     woy = d.isocalendar().week
-    right = f"Week {woy} / 52      ☀ --°"
-    tw = draw.textlength(right, font=theme.font(34))
-    draw.text((x + w - pad - tw, y + h // 2 - 18), right,
-              font=theme.font(34), fill=theme.MUTED)
+    right = f"Week {woy} / 52      --°"
+    rfont = theme.font(32)
+    tw = draw.textlength(right, font=rfont)
+    draw.text((x + w - pad - tw, right_y), right, font=rfont, fill=theme.MUTED)
+
+    if banner is not None:
+        _draw_banner(draw, x + pad, y + 86, w - 2 * pad, banner, dot=has_now)
+
+
+def _draw_banner(draw, x, y, max_w, text, dot: bool) -> None:
+    """Draw the Now/Next line. The 'now' indicator is a drawn dot (font-safe);
+    the text is ASCII + '·' (present in DejaVu, which the deploy ships)."""
+    bfont = theme.font(30)
+    cx = x
+    if dot:
+        r = 8
+        cyc = y + 18
+        draw.ellipse([cx, cyc - r, cx + 2 * r, cyc + r], fill=theme.INK)
+        cx += 2 * r + 12
+    # Truncate to the remaining width with an ellipsis.
+    avail = x + max_w - cx
+    text = _truncate(draw, text, bfont, avail)
+    draw.text((cx, y), text, font=bfont, fill=theme.STRONG)
+
+
+def _truncate(draw, text, font, max_w) -> str:
+    if draw.textlength(text, font=font) <= max_w:
+        return text
+    while text and draw.textlength(text + "…", font=font) > max_w:
+        text = text[:-1]
+    return text + "…"
 
 
 def _parse_date(s: str):
@@ -152,3 +210,19 @@ def render() -> str:
 
     img.save(config.png_path)
     return config.png_path
+
+
+def render_if_changed() -> bool:
+    """Render, then bump the version only if the PNG bytes actually changed.
+
+    Lets time-driven callers (e.g. the calendar poller) re-render frequently
+    without forcing needless e-ink refreshes. Returns True if the version bumped.
+    """
+    render()
+    with open(config.png_path, "rb") as f:
+        new_hash = hashlib.sha256(f.read()).hexdigest()
+    if new_hash != store.get_meta("png_hash"):
+        store.set_meta("png_hash", new_hash)
+        store.bump_version()
+        return True
+    return False

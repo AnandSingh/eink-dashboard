@@ -12,6 +12,7 @@ import uvicorn
 from .api import app
 from .config import config
 from .glasses import bot, watcher
+from .calendar import sync as calendar_sync
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 
@@ -20,9 +21,10 @@ app.include_router(bot.router)
 
 
 @app.on_event("startup")
-def _start_glasses_watcher() -> None:
+def _start_integrations() -> None:
     # Runs after the core startup hook (DB init + first render).
     watcher.start_background()
+    calendar_sync.start_background()  # no-op if CALENDAR_ICS_URL is unset
 
 
 def main() -> None:

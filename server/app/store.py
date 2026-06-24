@@ -48,6 +48,15 @@ CREATE TABLE IF NOT EXISTS meta (
     key TEXT PRIMARY KEY,
     value TEXT
 );
+CREATE TABLE IF NOT EXISTS event (
+    key TEXT PRIMARY KEY,          -- synthetic: uid@occurrence_start (distinct per occurrence)
+    uid TEXT,                      -- VEVENT UID (series id)
+    title TEXT,
+    start_utc TEXT NOT NULL,       -- ISO8601, UTC
+    end_utc TEXT NOT NULL,         -- ISO8601, UTC
+    all_day INTEGER NOT NULL DEFAULT 0,
+    location TEXT
+);
 """
 
 
@@ -72,15 +81,58 @@ def get_version() -> int:
 
 
 def bump_version() -> int:
-    """Increment the render version and trigger a re-render.
+    """Increment the render version. The Pi re-downloads the PNG when it changes.
 
-    TODO: after bumping, call renderer.render() to refresh dashboard.png.
+    Callers render first (or use renderer.render_if_changed, which bumps only when
+    the rendered image actually differs).
     """
     with connect() as conn:
         new = get_version() + 1
         conn.execute("UPDATE meta SET value=? WHERE key='version'", (str(new),))
         conn.commit()
     return new
+
+
+def get_meta(key: str) -> str | None:
+    with connect() as conn:
+        row = conn.execute("SELECT value FROM meta WHERE key=?", (key,)).fetchone()
+        return row["value"] if row else None
+
+
+def set_meta(key: str, value: str) -> None:
+    with connect() as conn:
+        conn.execute(
+            "INSERT INTO meta(key, value) VALUES (?,?) "
+            "ON CONFLICT(key) DO UPDATE SET value=excluded.value",
+            (key, value),
+        )
+        conn.commit()
+
+
+def replace_events(events: list[dict]) -> None:
+    """Wipe + repopulate the event table (display-only; tiny; no incremental diff).
+
+    Each event is {"key","uid","title","start_utc","end_utc","all_day","location"}.
+    """
+    with connect() as conn:
+        conn.execute("DELETE FROM event")
+        conn.executemany(
+            "INSERT OR REPLACE INTO event"
+            "(key, uid, title, start_utc, end_utc, all_day, location) "
+            "VALUES (:key,:uid,:title,:start_utc,:end_utc,:all_day,:location)",
+            events,
+        )
+        conn.commit()
+
+
+def get_events() -> list[dict]:
+    """All stored events (already windowed to ~today by the sync), earliest first."""
+    with connect() as conn:
+        rows = conn.execute(
+            "SELECT key, uid, title, start_utc, end_utc, all_day, location "
+            "FROM event ORDER BY start_utc"
+        ).fetchall()
+    return [dict(r) for r in rows]
 
 
 # --- Reads (used by the renderer) ---------------------------------------

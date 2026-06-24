@@ -12,5 +12,9 @@ pydantic==2.*
 # Folder watching
 watchdog==6.*
 
+# Calendar integration (phase 6) — parse .ics + expand recurrences
+icalendar==7.*
+recurring-ical-events==3.*
+
 # Config
 python-dotenv==1.*

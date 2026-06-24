@@ -37,6 +37,7 @@ server/      Docker service: ingest photos, store state, render the dashboard PN
     renderer.py       compose widgets → grayscale PNG
     widgets/          pluggable dashboard zones (today, habits, week, month, extras)
     api.py            serve dashboard.png + a version number
+    agenda.py         core Now/Next selection + header banner text
     # --- Meta AI glasses integration (kept separate) ---
     glasses/
       watcher.py      watch the synced photo folder
@@ -44,18 +45,23 @@ server/      Docker service: ingest photos, store state, render the dashboard PN
       router.py       route photo → extractor
       extractors/     photo type → structured records (tasks is the MVP)
       bot.py          voice/text write-back ("done: gym")
+    # --- Calendar integration (kept separate) ---
+    calendar/
+      source.py       fetch + parse a personal .ics, expand recurrences
+      sync.py         background poller → events in the store
 pi-client/   Runs on the Raspberry Pi: fetch the PNG, show it fullscreen
 docs/        Design docs
 data/        Runtime state (gitignored)
 ```
 
-> **Note:** everything Meta-glasses-specific lives under `server/app/glasses/`.
-> The core never imports from it, so the glasses integration can be swapped or
-> removed without touching the dashboard.
+> **Note:** everything Meta-glasses-specific lives under `server/app/glasses/`,
+> and everything calendar-specific under `server/app/calendar/`. The core never
+> imports from either, so both integrations can be swapped or removed without
+> touching the dashboard.
 
 ## Status
 
-🟢 **Phases 2–5 complete.**
+🟢 **Phases 2–6 complete.**
 - **Render path** — store → renderer → `dashboard.png`, served by the API.
 - **Capture path** — `glasses/` watches the synced photo folder → vision AI
   classifies + extracts tasks → store → dashboard re-renders, version bumps.
@@ -73,11 +79,16 @@ data/        Runtime state (gitignored)
   `week` (default) · `weekofyear` · `yearprogress` · `life` (life-in-weeks grid,
   needs `BIRTHDATE`).
 
+- **Calendar (Now/Next banner)** — point `CALENDAR_ICS_URL` at a personal `.ics`
+  and the header gains a `● Now: … · Next: …` line. Events are polled every 15 min,
+  stored in UTC, and the screen only refreshes when the rendered image changes.
+  Off by default (no URL = no banner, header unchanged). See `docs/plans/2026-06-24-calendar-integration-design.md`.
+
 Runs **without an API key** out of the box: set `VISION_PROVIDER=mock` (or leave
 `ANTHROPIC_API_KEY` empty) and the pipeline uses canned vision results so you can
 exercise the whole flow. Set a real key to read actual notebook photos.
 
-All five build phases are complete. 🎉
+Phases 2–6 are complete. 🎉
 
 ![dashboard preview](docs/dashboard-preview.png)
 
@@ -99,3 +110,4 @@ See [`pi-client/install.md`](pi-client/install.md).
 3. ✅ Capture path: watcher → classifier → tasks extractor
 4. ✅ Voice write-back bot
 5. ✅ Add-on widgets (week-of-year, life-in-weeks, …)
+6. ✅ Calendar integration (personal `.ics` → Now/Next header banner)

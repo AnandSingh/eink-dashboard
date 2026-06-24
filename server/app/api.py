@@ -22,8 +22,8 @@ def _startup() -> None:
     if store.is_empty():
         # Phase 2: seed demo data so the dashboard renders something real.
         store.seed_demo()
-        store.bump_version()
-    renderer.render()
+    # Renders and bumps the version + seeds the png hash for change detection.
+    renderer.render_if_changed()
     # Note: the Meta-glasses photo watcher is started by the composition root
     # (app/main.py), not here — core stays independent of the glasses package.
 
