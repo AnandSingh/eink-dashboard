@@ -14,7 +14,8 @@ Each new widget is a self-contained zone the renderer can drop in (no Pi changes
 
 1. **Sunrise / sunset + daylight remaining** — *highest value-per-effort.*
    Open-Meteo already returns `daily.sunrise`/`sunset`; add two fields to the
-   existing weather fetch + a small header/strip display. Complements weather.
+   existing weather fetch + a footer-strip segment. Complements weather.
+   📐 **Designed** (deferred): `docs/plans/2026-06-24-sunrise-sunset-design.md`
 2. **Countdown widget** — configurable target dates ("Trip in 23 days",
    "Q3 ends in 41 days"). Pure compute, trivial, highly motivating.
 3. **Sunday weekly-review mode** (larger; its own phase) — on Sundays swap a zone
