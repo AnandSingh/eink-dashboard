@@ -22,10 +22,14 @@ class Config:
     whatsapp_verify_token: str = os.getenv("WHATSAPP_VERIFY_TOKEN", "")
 
     # Add-on widgets (phase 5)
-    # Which widget fills the bottom-left zone: week | life | weekofyear | yearprogress
+    # Which widget fills the bottom-left zone: week | life | weekofyear | yearprogress | countdown
     bottom_left_widget: str = os.getenv("BOTTOM_LEFT_WIDGET", "week")
     birthdate: str = os.getenv("BIRTHDATE", "")        # YYYY-MM-DD, for life-in-weeks
     life_years: int = int(os.getenv("LIFE_YEARS", "90"))
+
+    # Countdown widget (phase 10) — your marked events only, as "label:YYYY-MM-DD"
+    # entries separated by ';'. Shown when BOTTOM_LEFT_WIDGET=countdown.
+    countdowns: str = os.getenv("COUNTDOWNS", "")
 
     # Calendar integration (phase 6) — personal .ics → Now/Next header banner.
     # Empty URL disables the feature (banner hides, poller never starts).
@@ -50,6 +54,10 @@ class Config:
     # Core daily tick — an always-on re-render so the date advances and Sunday
     # mode activates even with all integrations (calendar/weather) disabled.
     daily_tick_minutes: int = int(os.getenv("DAILY_TICK_MINUTES", "60"))
+
+    # Moon phase (phase 10) — footer segment with named phase + drawn glyph,
+    # computed offline via ephem. Set MOON_ENABLED=false to hide.
+    moon_enabled: bool = os.getenv("MOON_ENABLED", "true").lower() != "false"
 
     @property
     def db_path(self) -> str:

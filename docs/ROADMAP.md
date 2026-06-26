@@ -11,18 +11,20 @@ Each new widget is a self-contained zone the renderer can drop in (no Pi changes
 - ✅ Weather: icon + temp + today's high/low (phase 7)
 - ✅ Sunday weekly-review mode + core daily-tick (phase 8)
 - ✅ Sunrise/sunset + daylight remaining in footer (phase 9)
+- ✅ Countdown widget (your marked events) + moon phase via ephem (phase 10)
 
 ## Next up (recommended order)
 
-1. **Countdown widget** — configurable target dates ("Trip in 23 days",
-   "Q3 ends in 41 days"). Pure compute, trivial, highly motivating.
+1. **Ekadashi countdown** — deferred from phase 10. Planned route: dedicated
+   `EKADASHI_ICS_URL` + a wide-window `.ics` sync, surfaced next to the moon footer.
+   See `docs/plans/2026-06-26-countdown-and-moon-design.md` (Deferred section).
 2. **Quarter progress** + **weekdays/workdays left in month** — sharper than year %
    (pure compute; see backlog).
-3. **Moon phase** — computed, no API. Ambient touch (the footer already has a moon
-   glyph from phase 9 to reuse).
 
 ### Shipped
 
+- ~~Countdown widget + moon phase~~ — ✅ phase 10.
+  `docs/plans/2026-06-26-countdown-and-moon-design.md`
 - ~~Sunrise/sunset + daylight remaining~~ — ✅ phase 9.
   `docs/plans/2026-06-24-sunrise-sunset-design.md`
 - ~~Sunday weekly-review mode~~ — ✅ phase 8.

@@ -16,5 +16,8 @@ watchdog==6.*
 icalendar==7.*
 recurring-ical-events==3.*
 
+# Moon phase (phase 10) — offline sun/moon positions (no network, no data files)
+ephem==4.*
+
 # Config
 python-dotenv==1.*

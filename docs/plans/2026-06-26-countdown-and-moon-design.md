@@ -1,7 +1,7 @@
 # Countdown Widget + Moon Phase — Design
 
 **Date:** 2026-06-26
-**Status:** Design approved — not yet built
+**Status:** ✅ Built (phase 10). Countdown widget + moon phase shipped; Ekadashi deferred.
 **Author:** Anand (with Claude)
 
 ## Goal

@@ -8,10 +8,11 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from PIL import Image, ImageDraw
 
-from . import agenda, daylight, review, store, theme, weathericons, weatherview
+from . import agenda, countdown, daylight, moon, review, store, theme, weathericons, weatherview
 from .config import config
 from .widgets import today, habits, month, week, extras
 from .widgets import review as review_widget
+from .widgets import countdown as countdown_widget
 
 
 def _zones():
@@ -166,6 +167,9 @@ def _render_bottom_left(draw, box, today_date, load, habit_data, goals) -> None:
         extras.render_week_of_year(draw, box, {"today": today_date})
     elif choice == "yearprogress":
         extras.render_year_progress(draw, box, {"today": today_date})
+    elif choice == "countdown":
+        rows = countdown.build(countdown.parse(config.countdowns), today_date)
+        countdown_widget.render(draw, box, {"rows": rows})
     else:
         week.render(draw, box, {"load": load, "max": max(1, n_habits)})
 
@@ -228,6 +232,37 @@ def _draw_footer(draw, box) -> None:
                     _moon_glyph(draw, cursor + 9, cy, 8)
                 cursor += 30
                 draw.text((cursor, cy - 16), text, font=f, fill=theme.INK)
+                cursor += draw.textlength(text, font=f) + 24
+
+    # Moon phase segment: phase-accurate drawn glyph + named phase + illumination.
+    if config.moon_enabled:
+        try:
+            mp = moon.phase(dt.datetime.now(dt.timezone.utc))
+        except Exception:
+            mp = None
+        if mp:
+            draw.text((cursor, cy - 16), "·", font=f, fill=theme.FAINT)
+            cursor += draw.textlength("·", font=f) + 22
+            _moon_phase_glyph(draw, cursor + 11, cy, 11, mp["illum"], mp["waxing"])
+            cursor += 36
+            draw.text((cursor, cy - 16), f"{mp['name']} {mp['illum']}%",
+                      font=f, fill=theme.INK)
+
+
+def _moon_phase_glyph(draw, cx, cy, r, illum, waxing) -> None:
+    """Phase-accurate moon: per-scanline terminator fill, then an outline disc.
+
+    illum 0→empty outline, 100→filled; the lit side follows `waxing` (right when
+    waxing). The terminator x at row dy is xc·(1−2k), giving the correct sliver.
+    """
+    k = max(0.0, min(1.0, illum / 100))
+    for dy in range(-r, r + 1):
+        xc = math.sqrt(max(0.0, r * r - dy * dy))
+        tx = xc * (1 - 2 * k)
+        x0, x1 = (tx, xc) if waxing else (-xc, -tx)
+        if x1 > x0:
+            draw.line([cx + x0, cy + dy, cx + x1, cy + dy], fill=theme.INK)
+    draw.ellipse([cx - r, cy - r, cx + r, cy + r], outline=theme.INK, width=2)
 
 
 def _sun_glyph(draw, cx, cy, r) -> None:
