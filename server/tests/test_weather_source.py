@@ -21,6 +21,35 @@ def test_parse_forecast_valid():
     assert source.parse_forecast(d) == {"temp": 71.4, "high": 78.1, "low": 60.2, "code": 2}
 
 
+def test_parse_forecast_includes_sun_when_present():
+    d = {
+        "current": {"temperature_2m": 71.4, "weather_code": 2},
+        "utc_offset_seconds": -25200,
+        "daily": {
+            "temperature_2m_max": [78.1], "temperature_2m_min": [60.2],
+            "sunrise": ["2026-06-28T05:14"], "sunset": ["2026-06-28T21:10"],
+        },
+    }
+    out = source.parse_forecast(d)
+    assert out["sunrise"] == "2026-06-28T05:14"
+    assert out["sunset"] == "2026-06-28T21:10"
+    assert out["utc_offset"] == -25200
+
+
+def test_parse_forecast_sun_optional():
+    # No sunrise/sunset arrays -> core weather still parses, sun keys absent.
+    d = {
+        "current": {"temperature_2m": 71.4, "weather_code": 2},
+        "daily": {"temperature_2m_max": [78.1], "temperature_2m_min": [60.2]},
+    }
+    out = source.parse_forecast(d)
+    assert out == {"temp": 71.4, "high": 78.1, "low": 60.2, "code": 2}
+    # polar / null sun values -> skipped, no crash
+    d["daily"]["sunrise"] = [None]
+    d["daily"]["sunset"] = [None]
+    assert "sunrise" not in source.parse_forecast(d)
+
+
 def test_parse_forecast_defensive():
     # missing current temp
     assert source.parse_forecast({"current": {"weather_code": 1},

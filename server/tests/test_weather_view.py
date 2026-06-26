@@ -46,6 +46,25 @@ def test_view_parse_rejects_bool_temp():
     assert weatherview.parse(json.dumps({"temp": True, "high": 75, "low": 60, "code": 0})) is None
 
 
+def test_parse_sun_valid():
+    blob = json.dumps({"temp": 70, "high": 75, "low": 60, "code": 1,
+                       "sunrise": "2026-06-28T05:14", "sunset": "2026-06-28T21:10",
+                       "utc_offset": -25200})
+    assert weatherview.parse_sun(blob) == {
+        "sunrise": "2026-06-28T05:14", "sunset": "2026-06-28T21:10", "utc_offset": -25200,
+    }
+
+
+def test_parse_sun_absent_or_garbage():
+    assert weatherview.parse_sun(None) is None
+    assert weatherview.parse_sun("not json") is None
+    # core weather present but no sun fields -> None (header still works via parse())
+    assert weatherview.parse_sun(json.dumps({"temp": 70, "high": 75, "low": 60, "code": 1})) is None
+    # missing offset defaults to 0
+    blob = json.dumps({"sunrise": "2026-06-28T05:14", "sunset": "2026-06-28T21:10"})
+    assert weatherview.parse_sun(blob)["utc_offset"] == 0
+
+
 def test_draw_glyphs_do_not_raise():
     from PIL import Image, ImageDraw
     img = Image.new("L", (60, 60), color=255)

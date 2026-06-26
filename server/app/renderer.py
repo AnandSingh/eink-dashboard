@@ -1,13 +1,14 @@
 """Compose widget zones into a single grayscale PNG sized for the Boox panel."""
 import datetime as dt
 import hashlib
+import math
 import os
 import threading
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from PIL import Image, ImageDraw
 
-from . import agenda, review, store, theme, weathericons, weatherview
+from . import agenda, daylight, review, store, theme, weathericons, weatherview
 from .config import config
 from .widgets import today, habits, month, week, extras
 from .widgets import review as review_widget
@@ -208,6 +209,41 @@ def _draw_footer(draw, box) -> None:
         lived_weeks = max(0, (today_date - birth).days // 7)
         total_weeks = config.life_years * 52
         segment(f"Life {int(lived_weeks / total_weeks * 100)}% · age {lived_weeks // 52}")
+
+    # Daylight segment: drawn sun/moon glyph + today's sunrise/sunset & time left.
+    # Only when the weather snapshot carries sun data (graceful absence otherwise).
+    if config.weather_enabled:
+        sun = weatherview.parse_sun(store.get_meta("weather"))
+        if sun:
+            now_local = (dt.datetime.now(dt.timezone.utc)
+                         + dt.timedelta(seconds=sun["utc_offset"])).replace(tzinfo=None)
+            seg = daylight.segment(sun["sunrise"], sun["sunset"], now_local)
+            if seg:
+                text, glyph = seg
+                draw.text((cursor, cy - 16), "·", font=f, fill=theme.FAINT)
+                cursor += draw.textlength("·", font=f) + 22
+                if glyph == "sun":
+                    _sun_glyph(draw, cursor + 9, cy, 7)
+                else:
+                    _moon_glyph(draw, cursor + 9, cy, 8)
+                cursor += 30
+                draw.text((cursor, cy - 16), text, font=f, fill=theme.INK)
+
+
+def _sun_glyph(draw, cx, cy, r) -> None:
+    """Small filled sun: disc + 8 short rays (font-safe primitive)."""
+    draw.ellipse([cx - r, cy - r, cx + r, cy + r], fill=theme.INK)
+    for i in range(8):
+        a = i * math.pi / 4
+        draw.line([cx + math.cos(a) * (r + 3), cy + math.sin(a) * (r + 3),
+                   cx + math.cos(a) * (r + 7), cy + math.sin(a) * (r + 7)],
+                  fill=theme.INK, width=2)
+
+
+def _moon_glyph(draw, cx, cy, r) -> None:
+    """Small crescent moon: disc with an offset BG disc carved out."""
+    draw.ellipse([cx - r, cy - r, cx + r, cy + r], fill=theme.INK)
+    draw.ellipse([cx - r + 5, cy - r, cx + r + 5, cy + r], fill=theme.BG)
 
 
 def _separators(draw, zones) -> None:

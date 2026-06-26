@@ -55,7 +55,20 @@ def parse_forecast(d: dict) -> dict | None:
     high, low = _num(highs[0]), _num(lows[0])
     if high is None or low is None:
         return None
-    return {"temp": float(temp), "high": float(high), "low": float(low), "code": int(code)}
+    out = {"temp": float(temp), "high": float(high), "low": float(low), "code": int(code)}
+
+    # Optional: today's sunrise/sunset (naive-local ISO when timezone=auto) plus the
+    # location's UTC offset, so the footer can compute daylight-remaining. Additive —
+    # absence just omits the footer segment; never fails the core weather parse.
+    sr = daily.get("sunrise") or []
+    ss = daily.get("sunset") or []
+    if (isinstance(sr, list) and sr and isinstance(sr[0], str)
+            and isinstance(ss, list) and ss and isinstance(ss[0], str)):
+        off = d.get("utc_offset_seconds")
+        out["sunrise"] = sr[0]
+        out["sunset"] = ss[0]
+        out["utc_offset"] = int(off) if isinstance(off, int) and not isinstance(off, bool) else 0
+    return out
 
 
 # --- impure: http + caching ---------------------------------------------
@@ -120,7 +133,7 @@ def fetch_snapshot() -> dict | None:
     qs = urllib.parse.urlencode({
         "latitude": loc["lat"], "longitude": loc["lon"],
         "current": "temperature_2m,weather_code",
-        "daily": "temperature_2m_max,temperature_2m_min",
+        "daily": "temperature_2m_max,temperature_2m_min,sunrise,sunset",
         "temperature_unit": units, "timezone": "auto",
     })
     parsed = parse_forecast(_get_json(f"{_OPEN_METEO}?{qs}"))

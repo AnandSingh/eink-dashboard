@@ -40,3 +40,28 @@ def parse(blob: str | None) -> dict | None:
         "hl_txt": f"H{round(high)} L{round(low)}",
         "code": code,
     }
+
+
+def parse_sun(blob: str | None) -> dict | None:
+    """meta['weather'] JSON -> {sunrise, sunset, utc_offset} or None.
+
+    Independent of parse(): sunrise/sunset are optional snapshot fields, so the
+    daylight footer segment can appear/disappear without affecting the header.
+    """
+    if not blob:
+        return None
+    try:
+        d = json.loads(blob)
+    except (ValueError, TypeError):
+        return None
+    if not isinstance(d, dict):
+        return None
+    sr, ss = d.get("sunrise"), d.get("sunset")
+    if not isinstance(sr, str) or not isinstance(ss, str):
+        return None
+    off = d.get("utc_offset")
+    return {
+        "sunrise": sr,
+        "sunset": ss,
+        "utc_offset": off if isinstance(off, int) and not isinstance(off, bool) else 0,
+    }

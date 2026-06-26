@@ -10,18 +10,23 @@ Each new widget is a self-contained zone the renderer can drop in (no Pi changes
 - ✅ Calendar Now/Next header banner (phase 6)
 - ✅ Weather: icon + temp + today's high/low (phase 7)
 - ✅ Sunday weekly-review mode + core daily-tick (phase 8)
+- ✅ Sunrise/sunset + daylight remaining in footer (phase 9)
 
 ## Next up (recommended order)
 
-1. **Sunrise / sunset + daylight remaining** — *highest value-per-effort.*
-   Open-Meteo already returns `daily.sunrise`/`sunset`; add two fields to the
-   existing weather fetch + a footer-strip segment. Complements weather.
-   📐 **Designed** (deferred): `docs/plans/2026-06-24-sunrise-sunset-design.md`
-2. **Countdown widget** — configurable target dates ("Trip in 23 days",
+1. **Countdown widget** — configurable target dates ("Trip in 23 days",
    "Q3 ends in 41 days"). Pure compute, trivial, highly motivating.
-3. ~~**Sunday weekly-review mode**~~ — ✅ shipped (phase 8). Wins/misses + next-week
-   focus from goals; reverts Mon–Sat; core daily-tick added for reliable rollover.
-   `docs/plans/2026-06-26-sunday-weekly-review-design.md`
+2. **Quarter progress** + **weekdays/workdays left in month** — sharper than year %
+   (pure compute; see backlog).
+3. **Moon phase** — computed, no API. Ambient touch (the footer already has a moon
+   glyph from phase 9 to reuse).
+
+### Shipped
+
+- ~~Sunrise/sunset + daylight remaining~~ — ✅ phase 9.
+  `docs/plans/2026-06-24-sunrise-sunset-design.md`
+- ~~Sunday weekly-review mode~~ — ✅ phase 8.
+  `docs/plans/2026-06-26-sunday-weekly-review-design.md`
 
 ## Backlog
 

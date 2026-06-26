@@ -1,7 +1,8 @@
 # Sunrise / Sunset + Daylight Remaining — Design
 
 **Date:** 2026-06-24
-**Status:** Design approved — deferred (not yet built)
+**Status:** ✅ Built (phase 9) — implemented as designed (pure `daylight.py` helper +
+`weatherview.parse_sun` + footer segment with drawn sun/moon glyphs)
 **Author:** Anand (with Claude)
 
 ## Goal
