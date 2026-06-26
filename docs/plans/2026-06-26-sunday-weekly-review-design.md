@@ -1,10 +1,11 @@
 # Sunday Weekly-Review Mode — Design
 
 **Date:** 2026-06-26
-**Status:** Design approved (rev 2, post adversarial review) — not yet built
+**Status:** Design approved (rev 3, post 2 review rounds) — ready to build
 **Author:** Anand (with Claude)
-**Review:** `2026-06-26-sunday-weekly-review-design-review-1.md` (verdict NEEDS_REVISION;
-all critical issues addressed below)
+**Reviews:** `…-design-review-1.md` (NEEDS_REVISION — 4 criticals) and
+`…-design-review-2.md` (1 remaining: wrong daemon-start file/justification).
+All addressed below.
 
 ## Goal
 
@@ -34,8 +35,11 @@ data source, no glasses involvement. The only infra addition is the tick daemon.
 2. **`due` formatting** for None / past / today / unparseable now specified.
 3. **Goal ranking** interleaving + stable tie-breaks now defined; `get_goals()` to
    expose `id` for a deterministic final sort key (avoids spurious e-ink refreshes).
-4. **Task week boundary** pinned to the *same* naive-local Monday `get_habits()` uses;
-   Monday computed once in the renderer and passed down.
+4. **Task week boundary** pinned to the *same* naive-local Monday `get_habits()` uses.
+   The renderer computes Monday (`date.today() - timedelta(days=weekday())`) and passes
+   it to `get_tasks_done_this_week(monday)`. `get_habits()` keeps computing its own
+   Monday internally — the two are **equal by construction** (same naive-local rule),
+   not a shared value.
 5. **Mockup ↔ rules** reconciled: wins and misses are each **one compact line**
    (up to 3 items inline), not 3 lines each.
 6. **`_truncate`** moved to a shared location to avoid a widget→renderer import cycle.
@@ -58,9 +62,14 @@ New files, mirroring existing patterns:
   `build_review(habits, tasks_done_count, goals, today) -> {"wins", "misses", "rocks"}`.
   No I/O, no store import → fully unit-testable (template: `tests/test_agenda.py`).
 - **`app/widgets/review.py`** — `render(draw, box, ctx)` (sibling to `today.py` etc.).
-- **`app/daily_tick.py`** — small always-on daemon (mirrors `weather/sync.py`'s
-  `start_background()` thread shape) that calls `renderer.render_if_changed()` on a
-  cadence. Started unconditionally from `api.py` startup.
+- **`app/daily_tick.py`** — small always-on daemon thread (reuses the
+  `start_background()` thread *shape* from `weather/sync.py`, not its start site) that
+  calls `renderer.render_if_changed()` on a cadence. Because it is **core** (ungated,
+  no feature dependency), it is started from **`api.py`'s core `_startup()` hook**
+  (right after the existing first `render_if_changed()` at api.py:26) — *not* from
+  `main.py:_start_integrations()`, which is reserved for the optional glasses/calendar/
+  weather integrations. This keeps core self-contained, consistent with api.py's
+  existing "watcher is started by the composition root, not here" boundary.
 
 Shared helper move:
 
@@ -73,8 +82,11 @@ Data, all from the existing store:
 - `habits` — `store.get_habits()` (keys `name, week, done, target, streak`; `target`
   is nullable).
 - **New store helper** — `store.get_tasks_done_this_week(monday)`: `COUNT(*)` of `task`
-  rows with `status='done'` and `date(done_at) >= :monday`. `monday` is passed in
-  (computed once by the renderer) so the task window matches the habit week exactly.
+  rows with `status='done'` and `date(done_at) >= :monday`. `monday` is computed by the
+  renderer and passed in; it equals (by construction) the Monday `get_habits()` derives
+  internally, so the task window matches the habit week exactly. (`date(done_at)`
+  normalizes the naive-local ISO `done_at` to a date, sidestepping the
+  `'2026-06-22'` vs `'2026-06-22T…'` lexical-compare boundary.)
 - `goals` — `store.get_goals()` extended to also select **`id`** (stable sort key).
 
 ## Re-render & activation (daily-tick daemon)
@@ -89,8 +101,11 @@ through Sunday (and the header date never advances).
 `DAILY_TICK_MINUTES`). `render_if_changed()` already hashes the PNG and only bumps the
 version on a real pixel change, so hourly ticks are cheap and cause **zero** extra
 e-ink refreshes on days where nothing changes. Activation latency into Sunday is ≤ the
-tick interval. Started from `api.py` startup, unconditionally (independent of any
-feature flag). Side benefit: the header date now advances on its own.
+tick interval. Started from `api.py`'s core `_startup()` hook, unconditionally
+(independent of any feature flag) — see *Architecture* for why core, not `main.py`.
+Thread-safety: `render_if_changed()` already holds `_RENDER_LOCK`, so concurrent ticks
++ pollers + API renders serialize safely (no re-entrancy, no deadlock). Side benefit:
+the header date now advances on its own.
 
 ## Compute rules
 
