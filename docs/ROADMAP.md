@@ -9,6 +9,7 @@ Each new widget is a self-contained zone the renderer can drop in (no Pi changes
 - ✅ Time-awareness footer strip (year % · week-of-year · life lived)
 - ✅ Calendar Now/Next header banner (phase 6)
 - ✅ Weather: icon + temp + today's high/low (phase 7)
+- ✅ Sunday weekly-review mode + core daily-tick (phase 8)
 
 ## Next up (recommended order)
 
@@ -18,10 +19,9 @@ Each new widget is a self-contained zone the renderer can drop in (no Pi changes
    📐 **Designed** (deferred): `docs/plans/2026-06-24-sunrise-sunset-design.md`
 2. **Countdown widget** — configurable target dates ("Trip in 23 days",
    "Q3 ends in 41 days"). Pure compute, trivial, highly motivating.
-3. **Sunday weekly-review mode** (larger; its own phase) — on Sundays swap a zone
-   to a review view: wins / misses this week + space for next week's 3 big rocks.
-   A time-aware layout change, not just a widget.
-   📐 **Designed**: `docs/plans/2026-06-26-sunday-weekly-review-design.md`
+3. ~~**Sunday weekly-review mode**~~ — ✅ shipped (phase 8). Wins/misses + next-week
+   focus from goals; reverts Mon–Sat; core daily-tick added for reliable rollover.
+   `docs/plans/2026-06-26-sunday-weekly-review-design.md`
 
 ## Backlog
 

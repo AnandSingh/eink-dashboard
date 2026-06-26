@@ -11,7 +11,7 @@ from fastapi.responses import FileResponse, JSONResponse
 import os
 
 from .config import config
-from . import store, renderer
+from . import store, renderer, daily_tick
 
 app = FastAPI(title="eink-dashboard")
 
@@ -24,6 +24,9 @@ def _startup() -> None:
         store.seed_demo()
     # Renders and bumps the version + seeds the png hash for change detection.
     renderer.render_if_changed()
+    # Core always-on tick: advances the date and activates Sunday-review mode even
+    # with every integration disabled. Core, so started here (not in main.py).
+    daily_tick.start_background()
     # Note: the Meta-glasses photo watcher is started by the composition root
     # (app/main.py), not here — core stays independent of the glasses package.
 

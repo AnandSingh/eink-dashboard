@@ -7,9 +7,10 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from PIL import Image, ImageDraw
 
-from . import agenda, store, theme, weathericons, weatherview
+from . import agenda, review, store, theme, weathericons, weatherview
 from .config import config
 from .widgets import today, habits, month, week, extras
+from .widgets import review as review_widget
 
 
 def _zones():
@@ -128,16 +129,8 @@ def _draw_banner(draw, x, y, max_w, text, dot: bool) -> None:
         cx += 2 * r + 12
     # Truncate to the remaining width with an ellipsis.
     avail = x + max_w - cx
-    text = _truncate(draw, text, bfont, avail)
+    text = theme.truncate(draw, text, bfont, avail)
     draw.text((cx, y), text, font=bfont, fill=theme.STRONG)
-
-
-def _truncate(draw, text, font, max_w) -> str:
-    if draw.textlength(text, font=font) <= max_w:
-        return text
-    while text and draw.textlength(text + "…", font=font) > max_w:
-        text = text[:-1]
-    return text + "…"
 
 
 def _parse_date(s: str):
@@ -147,8 +140,20 @@ def _parse_date(s: str):
         return None
 
 
-def _render_bottom_left(draw, box, today_date, load, n_habits) -> None:
-    """Dispatch the configurable bottom-left zone (week / life / weekofyear / yearprogress)."""
+def _render_bottom_left(draw, box, today_date, load, habit_data, goals) -> None:
+    """Dispatch the bottom-left zone.
+
+    On Sundays (when SUNDAY_REVIEW is on) this becomes the weekly-review view;
+    otherwise the configured widget (week / life / weekofyear / yearprogress).
+    """
+    if config.sunday_review and today_date.weekday() == 6:  # Sunday
+        monday = today_date - dt.timedelta(days=today_date.weekday())
+        tasks_done = store.get_tasks_done_this_week(monday)
+        rv = review.build_review(habit_data, tasks_done, goals, today_date)
+        review_widget.render(draw, box, {"review": rv})
+        return
+
+    n_habits = len(habit_data)
     choice = config.bottom_left_widget
     birth = _parse_date(config.birthdate)
     if choice == "life" and birth:
@@ -241,10 +246,11 @@ def _render_unlocked() -> str:
     # derive per-day week load from habit completions
     load = [sum(1 for hb in habit_data if hb["week"][i] is True) for i in range(7)]
 
+    goals = store.get_goals()
     today.render(draw, zones["today"], {"tasks": store.get_tasks()})
     habits.render(draw, zones["habits"], {"habits": habit_data})
-    _render_bottom_left(draw, zones["week"], today_date, load, len(habit_data))
-    month.render(draw, zones["month"], {"goals": store.get_goals()})
+    _render_bottom_left(draw, zones["week"], today_date, load, habit_data, goals)
+    month.render(draw, zones["month"], {"goals": goals})
 
     _separators(draw, zones)
     _draw_footer(draw, zones["footer"])

@@ -38,3 +38,16 @@ def font(size: int, bold: bool = False) -> ImageFont.FreeTypeFont:
         except OSError:
             continue
     return ImageFont.load_default()
+
+
+def truncate(draw, text: str, font, max_w: float) -> str:
+    """Trim text with an ellipsis so it fits within max_w pixels.
+
+    Shared by the renderer and widgets; lives here (not in renderer) so widgets
+    can use it without a widget→renderer back-import cycle.
+    """
+    if draw.textlength(text, font=font) <= max_w:
+        return text
+    while text and draw.textlength(text + "…", font=font) > max_w:
+        text = text[:-1]
+    return text + "…"

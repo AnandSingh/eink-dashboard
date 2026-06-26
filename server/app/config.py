@@ -42,6 +42,15 @@ class Config:
     weather_units: str = os.getenv("WEATHER_UNITS", "fahrenheit")  # fahrenheit | celsius
     weather_poll_minutes: int = int(os.getenv("WEATHER_POLL_MINUTES", "30"))
 
+    # Sunday weekly-review mode — on Sundays, swap the bottom-left zone to a
+    # review view (wins/misses + next-week focus). Reverts to bottom_left_widget
+    # Mon–Sat. Set SUNDAY_REVIEW=false to disable.
+    sunday_review: bool = os.getenv("SUNDAY_REVIEW", "true").lower() != "false"
+
+    # Core daily tick — an always-on re-render so the date advances and Sunday
+    # mode activates even with all integrations (calendar/weather) disabled.
+    daily_tick_minutes: int = int(os.getenv("DAILY_TICK_MINUTES", "60"))
+
     @property
     def db_path(self) -> str:
         return os.path.join(self.data_dir, "dashboard.db")

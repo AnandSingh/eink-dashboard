@@ -1,7 +1,7 @@
 # Sunday Weekly-Review Mode — Design
 
 **Date:** 2026-06-26
-**Status:** Design approved (rev 3, post 2 review rounds) — ready to build
+**Status:** ✅ Built (phase 8). Design rev 3, post 2 review rounds.
 **Author:** Anand (with Claude)
 **Reviews:** `…-design-review-1.md` (NEEDS_REVISION — 4 criticals) and
 `…-design-review-2.md` (1 remaining: wrong daemon-start file/justification).

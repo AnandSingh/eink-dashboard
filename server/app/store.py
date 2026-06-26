@@ -202,9 +202,25 @@ def get_habits() -> list[dict]:
 def get_goals() -> list[dict]:
     with connect() as conn:
         rows = conn.execute(
-            "SELECT text, progress, due FROM goal ORDER BY id"
+            "SELECT id, text, progress, due FROM goal ORDER BY id"
         ).fetchall()
     return [dict(r) for r in rows]
+
+
+def get_tasks_done_this_week(monday: dt.date) -> int:
+    """Count tasks completed on/after `monday` (the current ISO week's Monday).
+
+    `done_at` is a naive-local ISO timestamp (set by mark_task_done); `date(done_at)`
+    normalizes it to a date so the boundary is exact regardless of the time portion.
+    Caller passes the same naive-local Monday the habit week uses.
+    """
+    with connect() as conn:
+        row = conn.execute(
+            "SELECT COUNT(*) AS c FROM task "
+            "WHERE status='done' AND done_at IS NOT NULL AND date(done_at) >= ?",
+            (monday.isoformat(),),
+        ).fetchone()
+    return int(row["c"]) if row else 0
 
 
 def is_empty() -> bool:
