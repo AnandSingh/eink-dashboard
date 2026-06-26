@@ -21,6 +21,7 @@ Each new widget is a self-contained zone the renderer can drop in (no Pi changes
 3. **Sunday weekly-review mode** (larger; its own phase) — on Sundays swap a zone
    to a review view: wins / misses this week + space for next week's 3 big rocks.
    A time-aware layout change, not just a widget.
+   📐 **Designed**: `docs/plans/2026-06-26-sunday-weekly-review-design.md`
 
 ## Backlog
 
