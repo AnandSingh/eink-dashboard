@@ -53,3 +53,35 @@ def render(draw, box, data) -> None:
     if streaks:
         draw.text((name_x, ty + 8), "STREAK  " + "   ".join(streaks),
                   font=theme.font(26, bold=True), fill=theme.STRONG)
+        ty += 34
+
+    # consistency dots — per-habit weekly target hit/miss (last N completed weeks)
+    consistency = data.get("consistency", [])
+    if consistency:
+        _CONS_LINE = 36
+        needed = len(consistency) * _CONS_LINE + 16
+        remaining = (y + h) - ty
+        if remaining >= needed:
+            ty += 16  # spacing from streak line
+            dot_r = 4  # radius
+            cf = theme.font(24)
+            for row in consistency:
+                # habit name
+                draw.text((name_x, ty + 2), row["name"], font=cf, fill=theme.INK)
+                # dots: filled = hit, outlined = miss
+                dot_x = name_x + 160
+                dot_cy = ty + 14
+                for hit in row["weeks"]:
+                    rect = [dot_x - dot_r, dot_cy - dot_r,
+                            dot_x + dot_r, dot_cy + dot_r]
+                    if hit:
+                        draw.ellipse(rect, fill=theme.INK)
+                    else:
+                        draw.ellipse(rect, outline=theme.FAINT, width=2)
+                    dot_x += dot_r * 2 + 8
+                # hit rate right-aligned
+                rate_txt = f"{row['hit_rate']}%"
+                rate_w = draw.textlength(rate_txt, font=cf)
+                draw.text((dot_x + 16, ty + 2), rate_txt,
+                          font=cf, fill=theme.MUTED)
+                ty += _CONS_LINE

@@ -13,13 +13,16 @@ Each new widget is a self-contained zone the renderer can drop in (no Pi changes
 - ✅ Sunrise/sunset + daylight remaining in footer (phase 9)
 - ✅ Countdown widget (your marked events) + moon phase via ephem (phase 10)
 - ✅ Ekadashi countdown (footer) + quarter progress widget (phase 11)
+- ✅ Habit consistency dots + goal countdown format (phase 12)
 
 ## Next up (recommended order)
 
-1. *(See backlog — Ekadashi and quarter progress are now done.)*
+1. *(See backlog — habit consistency, goal countdown, Ekadashi, and quarter progress are now done.)*
 
 ### Shipped
 
+- ~~Habit consistency dots + goal countdown~~ — ✅ phase 12.
+  `docs/plans/2026-06-30-habit-consistency-design.md`
 - ~~Ekadashi countdown + quarter progress~~ — ✅ phase 11.
   `docs/plans/2026-06-30-ekadashi-quarter-design.md`
 - ~~Countdown widget + moon phase~~ — ✅ phase 10.
@@ -35,14 +38,11 @@ Each new widget is a self-contained zone the renderer can drop in (no Pi changes
 - **Moon phase** — computed, no API. Ambient touch.
 
 ### Leverages data we already have (no new source)
-- **Habit consistency heatmap** — GitHub-style grid of habit completions over weeks.
 - **Habit over-commitment warning** — flags an unrealistic week (targets vs capacity).
-- **Streak board** — biggest current streaks.
 - **Today's agenda** — full timeline from the calendar `event` table.
 
 ### Leverages goals data (small schema addition)
 - **Goal → habit linkage** — show which habits feed each goal.
-- **Goal countdown** — days to each goal's due date.
 
 ### Needs voice / glasses (heavier)
 - **Dictated one-line journal** + **"1 year ago today"**.

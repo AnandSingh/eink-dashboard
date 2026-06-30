@@ -334,9 +334,10 @@ def _render_unlocked() -> str:
 
     goals = store.get_goals()
     today.render(draw, zones["today"], {"tasks": store.get_tasks()})
-    habits.render(draw, zones["habits"], {"habits": habit_data})
+    consistency = store.get_habit_consistency()
+    habits.render(draw, zones["habits"], {"habits": habit_data, "consistency": consistency})
     _render_bottom_left(draw, zones["week"], today_date, load, habit_data, goals)
-    month.render(draw, zones["month"], {"goals": goals})
+    month.render(draw, zones["month"], {"goals": goals, "today": today_date})
 
     _separators(draw, zones)
     _draw_footer(draw, zones["footer"])

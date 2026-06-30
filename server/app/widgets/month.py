@@ -1,17 +1,40 @@
 """THIS MONTH zone — goals / big rocks with progress bars."""
+import datetime as dt
+
 from .. import theme
+
+
+def _due_text(due_str: str | None, today: dt.date) -> str | None:
+    """Format a due date as a countdown: '12d left', 'due today', '3d overdue'.
+
+    Returns None if due_str is falsy. Falls back to 'due <raw>' if unparseable.
+    """
+    if not due_str:
+        return None
+    try:
+        due = dt.date.fromisoformat(due_str)
+    except (ValueError, TypeError):
+        return f"due {due_str}"
+    diff = (due - today).days
+    if diff > 0:
+        return f"{diff}d left"
+    elif diff == 0:
+        return "due today"
+    else:
+        return f"{-diff}d overdue"
 
 
 def render(draw, box, data) -> None:
     """Draw monthly/quarterly goals with progress bars and due dates.
 
-    data = {"goals": [{"text", "progress", "due"}], ...}
+    data = {"goals": [{"text", "progress", "due"}], "today": date, ...}
     """
     x, y, w, h = box
     pad = 28
     draw.text((x + pad, y + pad), "THIS MONTH",
               font=theme.font(34, bold=True), fill=theme.STRONG)
 
+    today = data.get("today", dt.date.today())
     f = theme.font(30)
     df = theme.font(22)
     pct_room = 90               # leave space for the trailing "NN%" label
@@ -20,8 +43,8 @@ def render(draw, box, data) -> None:
     ty = y + pad + 64
     for goal in data.get("goals", []):
         draw.text((x + pad, ty), "▸ " + goal["text"], font=f, fill=theme.INK)
-        if goal.get("due"):
-            due_txt = "due " + goal["due"][5:]  # MM-DD
+        due_txt = _due_text(goal.get("due"), today)
+        if due_txt:
             tw = draw.textlength(due_txt, font=df)
             draw.text((x + w - pad - tw, ty + 4), due_txt, font=df, fill=theme.MUTED)
         ty += 44

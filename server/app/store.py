@@ -207,6 +207,48 @@ def get_goals() -> list[dict]:
     return [dict(r) for r in rows]
 
 
+def get_habit_consistency(weeks: int = 4) -> list[dict]:
+    """Per-habit weekly target hit/miss for the last N completed weeks.
+
+    Excludes the current (incomplete) week — the 7-day grid covers it.
+    Returns list of {"name": str, "weeks": [bool]*N, "hit_rate": int}.
+    Habits without target_per_week are skipped.
+    """
+    today = dt.date.today()
+    this_monday = today - dt.timedelta(days=today.weekday())
+    oldest_monday = this_monday - dt.timedelta(weeks=weeks)
+    # Build ordered list of Monday dates for each completed week
+    mondays = [oldest_monday + dt.timedelta(weeks=i) for i in range(weeks)]
+
+    results = []
+    with connect() as conn:
+        for h in conn.execute(
+            "SELECT id, name, target_per_week FROM habit "
+            "WHERE target_per_week IS NOT NULL ORDER BY id"
+        ):
+            logs = {
+                r["date"]
+                for r in conn.execute(
+                    "SELECT date FROM habit_log WHERE habit_id=? AND date>=? AND date<?",
+                    (h["id"], oldest_monday.isoformat(), this_monday.isoformat()),
+                )
+            }
+            week_hits = []
+            for mon in mondays:
+                count = sum(
+                    1 for d in logs
+                    if mon <= dt.date.fromisoformat(d) < mon + dt.timedelta(days=7)
+                )
+                week_hits.append(count >= h["target_per_week"])
+            hit_rate = round(sum(week_hits) / len(week_hits) * 100) if week_hits else 0
+            results.append({
+                "name": h["name"],
+                "weeks": week_hits,
+                "hit_rate": hit_rate,
+            })
+    return results
+
+
 def get_tasks_done_this_week(monday: dt.date) -> int:
     """Count tasks completed on/after `monday` (the current ISO week's Monday).
 
