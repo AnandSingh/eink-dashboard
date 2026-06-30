@@ -8,11 +8,12 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from PIL import Image, ImageDraw
 
-from . import agenda, countdown, daylight, moon, review, store, theme, weathericons, weatherview
+from . import agenda, countdown, daylight, ekadashi, moon, quarter, review, store, theme, weathericons, weatherview
 from .config import config
 from .widgets import today, habits, month, week, extras
 from .widgets import review as review_widget
 from .widgets import countdown as countdown_widget
+from .widgets import quarter as quarter_widget
 
 
 def _zones():
@@ -170,6 +171,9 @@ def _render_bottom_left(draw, box, today_date, load, habit_data, goals) -> None:
     elif choice == "countdown":
         rows = countdown.build(countdown.parse(config.countdowns), today_date)
         countdown_widget.render(draw, box, {"rows": rows})
+    elif choice == "quarter":
+        ctx = {**quarter.quarter_info(today_date), **quarter.month_weekdays(today_date)}
+        quarter_widget.render(draw, box, ctx)
     else:
         week.render(draw, box, {"load": load, "max": max(1, n_habits)})
 
@@ -247,6 +251,17 @@ def _draw_footer(draw, box) -> None:
             cursor += 36
             draw.text((cursor, cy - 16), f"{mp['name']} {mp['illum']}%",
                       font=f, fill=theme.INK)
+            cursor += draw.textlength(f"{mp['name']} {mp['illum']}%", font=f) + 24
+
+        # Ekadashi countdown — observer-free, like the moon.phase() call above.
+        try:
+            ek = ekadashi.next_ekadashi(dt.datetime.now(dt.timezone.utc))
+        except Exception:
+            ek = None
+        if ek:
+            label = ("Ekadashi today" if ek["days"] == 0
+                     else f"Ekadashi {ek['days']}d")
+            segment(label)
 
 
 def _moon_phase_glyph(draw, cx, cy, r, illum, waxing) -> None:

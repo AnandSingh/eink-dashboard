@@ -22,7 +22,7 @@ class Config:
     whatsapp_verify_token: str = os.getenv("WHATSAPP_VERIFY_TOKEN", "")
 
     # Add-on widgets (phase 5)
-    # Which widget fills the bottom-left zone: week | life | weekofyear | yearprogress | countdown
+    # Which widget fills the bottom-left zone: week | life | weekofyear | yearprogress | countdown | quarter
     bottom_left_widget: str = os.getenv("BOTTOM_LEFT_WIDGET", "week")
     birthdate: str = os.getenv("BIRTHDATE", "")        # YYYY-MM-DD, for life-in-weeks
     life_years: int = int(os.getenv("LIFE_YEARS", "90"))
