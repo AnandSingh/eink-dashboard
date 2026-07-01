@@ -1,0 +1,14 @@
+[Unit]
+Description=eink-dashboard framebuffer display (direct /dev/fb0 write)
+After=network-online.target
+Wants=network-online.target
+Conflicts=getty@tty1.service
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/dashboard-fb.sh
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
