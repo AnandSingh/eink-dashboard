@@ -342,6 +342,10 @@ def _render_unlocked() -> str:
     _separators(draw, zones)
     _draw_footer(draw, zones["footer"])
 
+    # E-ink contrast pass: crisper text, less mid-grey smear on the panel.
+    if config.eink_mode and config.eink_contrast != 1.0:
+        img = img.point(theme.eink_lut(config.eink_contrast))
+
     # Atomic write: render to a temp file then rename, so a concurrent reader
     # (GET /dashboard.png) never sees a half-written PNG.
     tmp = config.png_path + ".tmp"

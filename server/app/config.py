@@ -15,6 +15,12 @@ class Config:
     panel_width: int = int(os.getenv("PANEL_WIDTH", "2560"))
     panel_height: int = int(os.getenv("PANEL_HEIGHT", "1440"))
 
+    # E-ink contrast mode: boost separation so text/headings read crisper and
+    # muddy mid-greys don't smear on the panel. EINK_CONTRAST is the S-curve
+    # strength around mid-grey (1.0 = off; ~1.35 is a good default).
+    eink_mode: bool = os.getenv("EINK_MODE", "false").lower() == "true"
+    eink_contrast: float = float(os.getenv("EINK_CONTRAST", "1.35"))
+
     api_port: int = int(os.getenv("API_PORT", "8080"))
 
     # Voice write-back bot (phase 4, optional)

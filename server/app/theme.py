@@ -7,6 +7,23 @@ from functools import lru_cache
 
 from PIL import ImageFont
 
+
+@lru_cache(maxsize=8)
+def eink_lut(factor: float) -> tuple:
+    """256-entry contrast lookup table for e-ink, usable with Image.point().
+
+    Applies a linear contrast stretch about mid-grey (128): darks get darker,
+    lights get lighter, so text/headings read as near-solid black and faint
+    hints recede toward paper. Endpoints are preserved (0->0, 255->255) and all
+    values are clamped to [0, 255]. factor=1.0 is a no-op identity table.
+    """
+    lut = []
+    for v in range(256):
+        nv = (v - 128) * factor + 128
+        lut.append(max(0, min(255, int(round(nv)))))
+    return tuple(lut)
+
+
 # Grayscale "ink" levels
 INK = 0        # primary text / borders
 STRONG = 40    # headings
