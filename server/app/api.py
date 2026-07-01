@@ -6,7 +6,7 @@ and downloads /dashboard.png only when the version changes.
 Also the container's main process: starts the DB and (later) the photo watcher.
 """
 from fastapi import FastAPI
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
 
 import os
 
@@ -29,6 +29,12 @@ def _startup() -> None:
     daily_tick.start_background()
     # Note: the Meta-glasses photo watcher is started by the composition root
     # (app/main.py), not here — core stays independent of the glasses package.
+
+
+@app.get("/")
+def root() -> RedirectResponse:
+    # Bare host → the dashboard image, so browsing the server shows something useful.
+    return RedirectResponse(url="/dashboard.png")
 
 
 @app.get("/version")
